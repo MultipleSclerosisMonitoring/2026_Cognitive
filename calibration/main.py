@@ -132,9 +132,15 @@ def main() -> None:
     excel_path = excel_path_value
     test_type = data_config.get("test_type", "sdmt")
     column_config = data_config.get("column_mapping", None)
+    clinical_skiprows = data_config.get("clinical_skiprows", 2)
     
     logging.info(_("Procesando extraccion de datos para el test objetivo: %s"), test_type.upper())
-    processor = DataProcessor(db_uri=db_uri, excel_path=excel_path, column_config=column_config)
+    processor = DataProcessor(
+        db_uri=db_uri,
+        excel_path=excel_path,
+        column_config=column_config,
+        clinical_skiprows=clinical_skiprows,
+    )
     
     try:
         df_merged = processor.load_and_merge(test_type)

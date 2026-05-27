@@ -33,7 +33,13 @@ class DataProcessor:
         column_config (Dict): Configuration for column names per test type.
     """
 
-    def __init__(self, db_uri: str, excel_path: str, column_config: Optional[Dict] = None) -> None:
+    def __init__(
+        self,
+        db_uri: str,
+        excel_path: str,
+        column_config: Optional[Dict] = None,
+        clinical_skiprows: int = 2,
+    ) -> None:
         """Initializes the DataProcessor with database and file credentials.
 
         Args:
@@ -41,11 +47,14 @@ class DataProcessor:
             excel_path (str): Path to the Excel file containing the paper-based test scores.
             column_config (Optional[Dict]): Configuration for column names per test type.
                 Should contain 'sdmt', 'tmt' keys with 'target' and 'features_to_drop' lists.
+            clinical_skiprows (int): Number of initial rows to skip before reading
+                the clinical header row. Defaults to 2.
         """
         self.db_uri = db_uri
         self.excel_path = excel_path
         self.engine = create_engine(self.db_uri)
         self.column_config = column_config or self._default_column_config()
+        self.clinical_skiprows = clinical_skiprows
     
     @staticmethod
     def _default_column_config() -> Dict:
@@ -160,12 +169,16 @@ class DataProcessor:
             )
         
         try:
-            logger.debug(_("Leyendo datos clínicos desde Excel: %s"), self.excel_path)
-            return pd.read_excel(self.excel_path)
+            logger.debug(
+                _("Leyendo datos clínicos desde Excel: %s (skiprows=%d)"),
+                self.excel_path,
+                self.clinical_skiprows
+            )
+            return pd.read_excel(self.excel_path, skiprows=self.clinical_skiprows)
         except Exception as e:
             logger.debug(_("Fallback a CSV: %s"), str(e))
             try:
-                return pd.read_csv(self.excel_path)
+                return pd.read_csv(self.excel_path, skiprows=self.clinical_skiprows)
             except Exception as csv_error:
                 raise DataProcessingError(
                     _("No se pudo leer datos clínicos ni desde Excel ni desde CSV: %s") % str(csv_error)

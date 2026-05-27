@@ -4,6 +4,7 @@ data:
   db_host: "localhost"  # Fallback, overridden by DB_HOST env var
   db_port: "5432"       # Fallback, overridden by DB_PORT env var
   excel_path: "./data/datos_papel.xlsx"
+  clinical_skiprows: 2
   test_type: "sdmt"
   # Column configuration per test type
   column_mapping:
