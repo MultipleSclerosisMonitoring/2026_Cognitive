@@ -7,7 +7,7 @@ import pandas as pd
 from typing import Any, Dict, List
 from dotenv import load_dotenv
 from calibration.models.algoritmos import get_model
-from calibration.data.loader import DataProcessor
+from calibration.data.loader import DataProcessor, DataProcessingError
 from calibration.utils.reporting import ReportGenerator
 
 # Load environment variables from .env file
@@ -116,12 +116,25 @@ def main() -> None:
     
     excel_path = os.environ.get("EXCEL_DATA_PATH", data_config.get("excel_path", "datos_papel.xlsx"))
     test_type = data_config.get("test_type", "sdmt")
+    column_config = data_config.get("column_mapping", None)
     
     logging.info(_("Procesando extraccion de datos para el test objetivo: %s"), test_type.upper())
-    processor = DataProcessor(db_uri=db_uri, excel_path=excel_path)
-    df_merged = processor.load_and_merge(test_type)
+    processor = DataProcessor(db_uri=db_uri, excel_path=excel_path, column_config=column_config)
     
-    X_train, X_test, y_train, y_test, groups_train = processor.prepare_splits(df_merged, test_type)
+    try:
+        df_merged = processor.load_and_merge(test_type)
+    except DataProcessingError as e:
+        logging.critical(_("Error critico en procesamiento de datos: %s"), str(e))
+        return
+    except Exception as e:
+        logging.critical(_("Error inesperado durante carga de datos: %s"), str(e))
+        return
+    
+    try:
+        X_train, X_test, y_train, y_test, groups_train = processor.prepare_splits(df_merged, test_type)
+    except DataProcessingError as e:
+        logging.critical(_("Error en preparación de datos: %s"), str(e))
+        return
     
     models_config: List[Dict[str, Any]] = config.get("models", [{"type": "linear", "cv_folds": 3}])
     
@@ -155,10 +168,10 @@ def main() -> None:
             logging.info(_("Entrenamiento finalizado para %s. Obteniendo predicciones ciegas..."), model_type)
             predicciones = calibrador.predict(X_test)
             
-            # Generación de Reportes y Gráficos
             logging.info(_("Generando reportes y metricas clinicas..."))
             metrics = reporter.evaluate_and_save(y_true=y_test, y_pred=predicciones, model_name=model_type)
             reporter.generate_scatter_plot(y_true=y_test, y_pred=predicciones, model_name=model_type)
+            reporter.generate_residuals_plot(y_true=y_test, y_pred=predicciones, model_name=model_type)
             
             logging.info(_("Modelo %s evaluado con exito. RMSE: %.4f | R2: %.4f"), model_type, metrics["RMSE"], metrics["R2_Score"])
             

@@ -8,8 +8,10 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge
 from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 import xgboost as xgb
-from .base import BaseModelCalibrator
+from .base import BaseModelCalibrator, PipelineNotTrainedError
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 translation = gettext.translation('messages', localedir='locales', fallback=True)
@@ -32,6 +34,8 @@ class StandardCalibrator(BaseModelCalibrator):
             by removing the mean and scaling to unit variance.
         feature_ranges (Dict[str, Tuple[float, float]]): Dictionary storing the 
             minimum and maximum values for each feature encountered during training.
+        best_params (Dict): Best hyperparameters found during search
+        cv_results (Dict): Cross-validation results from search
     """
     
     def __init__(self, estimator: Any):
@@ -50,6 +54,9 @@ class StandardCalibrator(BaseModelCalibrator):
         self.model = None
         self.scaler = StandardScaler()
         self.feature_ranges: Dict[str, Tuple[float, float]] = {}
+        self.best_params: Dict = {}
+        self.cv_results: Dict = {}
+        self._estimator_name = type(estimator).__name__
         
     def train(
         self, 
@@ -63,11 +70,12 @@ class StandardCalibrator(BaseModelCalibrator):
         """Fits the scaler and the base estimator integrating cross-validation and optimization.
         
         The logical process of this function follows these steps:
-        Firstly, it explores the training dataset to record safety boundaries for all features.
-        Secondly, it fits and applies standard scaling exclusively on the training data.
-        Thirdly, it evaluates whether hyperparameter tuning is required based on the presence 
+        Firstly, it validates the input data and stores baseline training statistics.
+        Secondly, it explores the training dataset to record safety boundaries for all features.
+        Thirdly, it fits and applies standard scaling exclusively on the training data.
+        Fourthly, it evaluates whether hyperparameter tuning is required based on the presence 
         of a parameter grid.
-        Fourthly, if required, it branches between a randomized search for computational 
+        Fifthly, if required, it branches between a randomized search for computational 
         efficiency or an exhaustive grid search for maximum precision.
         Finally, it internally stores the winning estimator for future inference.
         
@@ -86,17 +94,70 @@ class StandardCalibrator(BaseModelCalibrator):
             ValueError: If the feature matrix X or target vector Y contain null data 
                 or shape inconsistencies.
         """
-        logger.info(_("Iniciando fase de entrenamiento y pre-procesamiento de datos."))
+        # Validate inputs first (will call parent's validation)
+        super().train(X, y)
         
+        logger.info(_("▶️ Iniciando fase de entrenamiento para modelo: %s"), self._estimator_name)
+        
+        # Store feature ranges for boundary checking during inference
         self.feature_ranges = {
             col: (float(X[col].min()), float(X[col].max())) for col in X.columns
         }
         
+        # Fit scaler on training data only
+        logger.debug(_("Ajustando escalador StandardScaler..."))
         X_scaled = self.scaler.fit_transform(X)
         
+        # Store training metadata
+        self.metadata = {
+            'estimator_type': self._estimator_name,
+            'n_features': X.shape[1],
+            'n_samples': X.shape[0],
+            'training_date': datetime.now().isoformat(),
+            'target_mean': float(y.mean()),
+            'target_std': float(y.std()),
+            'target_min': float(y.min()),
+            'target_max': float(y.max())
+        }
+        
+        logger.debug(_("Metadatos de entrenamiento: %d features, %d samples"), 
+                    self.metadata['n_features'], self.metadata['n_samples'])
+        
         if param_grid:
-            if search_strategy.lower() == "random":
-                logger.info(_("Iniciando búsqueda ALEATORIA en espacio de parámetros con %d intentos máximos."), n_iter)
+            logger.info(_("Detectado grid de parámetros. Iniciando búsqueda: %s"), search_strategy.upper())
+            self._hyperparameter_search(X_scaled, y, param_grid, cv_folds, search_strategy, n_iter)
+        else:
+            logger.info(_("No se detectó malla de parámetros. Entrenando con valores por defecto."))
+            self.base_estimator.fit(X_scaled, y)
+            self.model = self.base_estimator
+            logger.debug(_("Modelo entrenado con parámetros por defecto"))
+        
+        # Mark as trained
+        self._is_trained = True
+        logger.info(_("✓ Entrenamiento completado exitosamente"))
+    
+    def _hyperparameter_search(
+        self, 
+        X_scaled: np.ndarray, 
+        y: pd.Series, 
+        param_grid: Dict[str, list], 
+        cv_folds: Any, 
+        strategy: str, 
+        n_iter: int
+    ) -> None:
+        """Performs hyperparameter search using grid or random strategy.
+        
+        Args:
+            X_scaled: Scaled feature matrix
+            y: Target vector
+            param_grid: Parameter grid for search
+            cv_folds: Cross-validation folds
+            strategy: 'grid' or 'random'
+            n_iter: Number of iterations for random search
+        """
+        try:
+            if strategy.lower() == "random":
+                logger.info(_("Iniciando búsqueda ALEATORIA con %d iteraciones máximas"), n_iter)
                 search = RandomizedSearchCV(
                     estimator=self.base_estimator,
                     param_distributions=param_grid,
@@ -104,29 +165,43 @@ class StandardCalibrator(BaseModelCalibrator):
                     cv=cv_folds,
                     scoring='neg_root_mean_squared_error',
                     n_jobs=-1,
-                    random_state=42
+                    random_state=42,
+                    verbose=1
                 )
             else:
-                logger.info(_("Iniciando búsqueda EXHAUSTIVA (Grid) en el espacio de parámetros."))
+                logger.info(_("Iniciando búsqueda EXHAUSTIVA (Grid Search)"))
+                # Calculate total combinations
+                total_combos = 1
+                for v in param_grid.values():
+                    total_combos *= len(v)
+                logger.debug(_("Total de combinaciones a evaluar: %d"), total_combos)
+                
                 search = GridSearchCV(
                     estimator=self.base_estimator,
                     param_grid=param_grid,
                     cv=cv_folds,
                     scoring='neg_root_mean_squared_error',
-                    n_jobs=-1
+                    n_jobs=-1,
+                    verbose=1
                 )
             
+            logger.info(_("Ejecutando búsqueda de hiperparámetros..."))
             search.fit(X_scaled, y)
             
             self.model = search.best_estimator_
-            logger.info(_("Optimización concluida. Mejores hiperparámetros: %s"), search.best_params_)
+            self.best_params = search.best_params_
+            self.cv_results = search.cv_results_
             
-        else:
-            logger.info(_("No se detectó malla de parámetros. Entrenando modelo de forma determinista con valores por defecto."))
-            self.base_estimator.fit(X_scaled, y)
-            self.model = self.base_estimator
+            logger.info(_("✓ Optimización completada. Mejor score: %.4f"), -search.best_score_)
+            logger.info(_("Mejores hiperparámetros: %s"), self.best_params)
             
-        logger.info(_("El estimador predictivo se ha ajustado exitosamente y está listo para inferencia."))
+            # Store optimization metadata
+            self.metadata['best_params'] = self.best_params
+            self.metadata['best_cv_score'] = float(-search.best_score_)
+            
+        except Exception as e:
+            logger.error(_("Error durante búsqueda de hiperparámetros: %s"), str(e))
+            raise
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """Applies the predictive model to new observations while enforcing safety checks.
@@ -144,15 +219,56 @@ class StandardCalibrator(BaseModelCalibrator):
                 scale of the paper-based test.
                         
         Raises:
-            RuntimeError: If this method is called before invoking the `train` method.
+            PipelineNotTrainedError: If this method is called before invoking the `train` method.
+            ValueError: If input features don't match training features
         """
-        if self.model is None:
-            raise RuntimeError(_("No se puede inferir: el modelo aún no ha sido ajustado. Llame a train() primero."))
-            
-        self.check_boundaries(X)
-        X_scaled = self.scaler.transform(X)
+        self._check_trained()
         
-        return self.model.predict(X_scaled)
+        # Validate feature compatibility
+        if list(X.columns) != self.feature_names:
+            logger.warning(_("Advertencia: El orden o nombre de features no coincide con el entrenamiento"))
+            X = X[self.feature_names]  # Reorder to match training
+        
+        # Check boundaries before prediction
+        boundary_violations = self.check_boundaries(X)
+        if boundary_violations:
+            logger.warning(_("⚠️ Se detectaron %d features con valores fuera de rango"), len(boundary_violations))
+        
+        # Scale and predict
+        logger.debug(_("Escalando datos de entrada para predicción..."))
+        X_scaled = self.scaler.transform(X)
+        predictions = self.model.predict(X_scaled)
+        
+        logger.debug(_("Predicción completada: %d muestras procesadas"), len(predictions))
+        return predictions
+    
+    def get_feature_importance(self, top_n: int = 10) -> Optional[pd.DataFrame]:
+        """Extracts feature importance if available (for tree-based models).
+        
+        Args:
+            top_n: Number of top features to return
+            
+        Returns:
+            DataFrame with feature importances, or None if model doesn't support it
+        """
+        self._check_trained()
+        
+        # Check if model has feature_importances_ attribute (tree-based models)
+        if hasattr(self.model, 'feature_importances_'):
+            importances = self.model.feature_importances_
+            feature_importance_df = pd.DataFrame({
+                'feature': self.feature_names,
+                'importance': importances
+            }).sort_values('importance', ascending=False)
+            
+            logger.info(_("Importancias de features (top %d):"), top_n)
+            for idx, row in feature_importance_df.head(top_n).iterrows():
+                logger.info(_("  %s: %.4f"), row['feature'], row['importance'])
+            
+            return feature_importance_df.head(top_n)
+        else:
+            logger.debug(_("Modelo %s no soporta feature importance"), self._estimator_name)
+            return None
 
 
 def get_model(model_type: str, **kwargs) -> StandardCalibrator:
@@ -174,6 +290,8 @@ def get_model(model_type: str, **kwargs) -> StandardCalibrator:
     Raises:
         ValueError: If the requested `model_type` does not exist in the internal catalog.
     """
+    logger.info(_("Creando modelo factory para tipo: %s"), model_type.upper())
+    
     models = {
         "linear": LinearRegression(**kwargs),
         "logistic": LogisticRegression(random_state=42, **kwargs),
@@ -183,8 +301,13 @@ def get_model(model_type: str, **kwargs) -> StandardCalibrator:
         "xgboost": xgb.XGBRegressor(random_state=42, n_jobs=-1, **kwargs)
     }
     
-    if model_type not in models:
-        raise ValueError(_("Identificador de modelo no válido: '%s'. Opciones disponibles: %s") % 
-                         (model_type, list(models.keys())))
-        
-    return StandardCalibrator(models[model_type])
+    if model_type.lower() not in models:
+        available = ", ".join(models.keys())
+        raise ValueError(
+            _("Identificador de modelo '%s' no reconocido. Opciones disponibles: %s") % (model_type, available)
+        )
+    
+    estimator = models[model_type.lower()]
+    logger.debug(_("Estimador %s creado exitosamente"), type(estimator).__name__)
+    
+    return StandardCalibrator(estimator)

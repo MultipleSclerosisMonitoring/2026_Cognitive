@@ -1,14 +1,21 @@
 import logging
 import gettext
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import Dict, Any
-from sklearn.metrics import root_mean_squared_error, r2_score
+from typing import Dict, Any, Optional
+from pathlib import Path
+from sklearn.metrics import (
+    root_mean_squared_error, r2_score, mean_absolute_error, 
+    mean_absolute_percentage_error, mean_squared_error
+)
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 translation = gettext.translation('messages', localedir='locales', fallback=True)
 _ = translation.gettext
+
 
 class ReportGenerator:
     """Utility class for generating performance reports and interactive visualizations.
@@ -22,6 +29,7 @@ class ReportGenerator:
     Attributes:
         output_excel (str): The file path where the Excel report will be saved.
         output_html (str): The file path where the Plotly visualization will be saved.
+        metrics_history (Dict): Running history of all metrics computed
     """
 
     def __init__(self, output_excel: str, output_html: str) -> None:
@@ -33,15 +41,27 @@ class ReportGenerator:
         """
         self.output_excel = output_excel
         self.output_html = output_html
+        self.metrics_history: Dict[str, Any] = {}
+        
+        # Create output directories if needed
+        Path(self.output_excel).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.output_html).parent.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(_("Generador de reportes inicializado. Excel: %s | HTML: %s"), 
+                   self.output_excel, self.output_html)
 
-    def evaluate_and_save(self, y_true: pd.Series, y_pred: Any, model_name: str) -> Dict[str, float]:
-        """Calculates regression metrics and appends them to the Excel report.
+    def evaluate_and_save(
+        self, 
+        y_true: pd.Series, 
+        y_pred: Any, 
+        model_name: str
+    ) -> Dict[str, float]:
+        """Calculates comprehensive regression metrics and appends them to the Excel report.
 
-        This method computes the Root Mean Squared Error (RMSE) and the 
-        Coefficient of Determination (R2 Score). It then attempts to read 
-        an existing Excel report to append the new results; if the file 
-        does not exist, it creates a new one. This allows multiple models 
-        in a pipeline to log their results sequentially.
+        This method computes multiple regression metrics including RMSE, R2, MAE, 
+        and MAPE. It then attempts to read an existing Excel report to append the 
+        new results; if the file does not exist, it creates a new one. This allows 
+        multiple models in a pipeline to log their results sequentially.
 
         Args:
             y_true (pd.Series): The ground truth paper-based scores.
@@ -50,76 +70,258 @@ class ReportGenerator:
 
         Returns:
             Dict[str, float]: A dictionary containing the computed metrics.
+            
+        Raises:
+            ValueError: If y_true and y_pred have different lengths
         """
-        logger.info(_("Calculando metricas de rendimiento para el modelo %s"), model_name)
+        # Validate inputs
+        y_true = np.asarray(y_true).flatten()
+        y_pred = np.asarray(y_pred).flatten()
         
+        if len(y_true) != len(y_pred):
+            raise ValueError(
+                _("Longitud de y_true (%d) y y_pred (%d) no coinciden") % (len(y_true), len(y_pred))
+            )
+        
+        if len(y_true) < 2:
+            raise ValueError(_("Se requieren al menos 2 muestras para calcular métricas"))
+        
+        logger.info(_("▶️ Calculando métricas de rendimiento para modelo: %s"), model_name)
+        
+        # Calculate all metrics
         rmse = float(root_mean_squared_error(y_true, y_pred))
+        mae = float(mean_absolute_error(y_true, y_pred))
+        mse = float(mean_squared_error(y_true, y_pred))
         r2 = float(r2_score(y_true, y_pred))
+        
+        # Calculate MAPE safely (avoid division by zero)
+        try:
+            mape = float(mean_absolute_percentage_error(y_true, y_pred))
+        except Exception:
+            mape = np.nan
+        
+        # Calculate residuals
+        residuals = y_true - y_pred
+        residual_std = float(np.std(residuals))
+        residual_mean = float(np.mean(residuals))
         
         metrics = {
             "Model": model_name,
+            "Timestamp": datetime.now().isoformat(),
+            "N_Samples": len(y_true),
             "RMSE": rmse,
-            "R2_Score": r2
+            "MAE": mae,
+            "MSE": mse,
+            "R2_Score": r2,
+            "MAPE": mape,
+            "Residual_Mean": residual_mean,
+            "Residual_Std": residual_std,
+            "Min_True": float(y_true.min()),
+            "Max_True": float(y_true.max()),
+            "Mean_True": float(y_true.mean()),
+            "Std_True": float(y_true.std()),
+            "Min_Pred": float(y_pred.min()),
+            "Max_Pred": float(y_pred.max()),
+            "Mean_Pred": float(y_pred.mean()),
+            "Std_Pred": float(y_pred.std())
         }
         
-        logger.info(_("Metricas obtenidas - RMSE: %.4f, R2: %.4f"), rmse, r2)
+        # Log summary
+        logger.info(_("✓ Métricas de %s:"), model_name)
+        logger.info(_("  • RMSE: %.4f | MAE: %.4f | R²: %.4f"), rmse, mae, r2)
+        logger.info(_("  • Residual (Media±Std): %.4f±%.4f"), residual_mean, residual_std)
+        logger.info(_("  • Rango Verdadero: [%.2f, %.2f] | Predicho: [%.2f, %.2f]"), 
+                   y_true.min(), y_true.max(), y_pred.min(), y_pred.max())
         
+        # Save to Excel
         df_new = pd.DataFrame([metrics])
         
         try:
             df_existing = pd.read_excel(self.output_excel)
             df_final = pd.concat([df_existing, df_new], ignore_index=True)
+            logger.debug(_("Tabla de reportes existente encontrada. Agregando fila..."))
         except FileNotFoundError:
+            logger.debug(_("Creando nueva tabla de reportes"))
             df_final = df_new
-            
-        df_final.to_excel(self.output_excel, index=False)
-        logger.info(_("Resultados guardados exitosamente en %s"), self.output_excel)
+        
+        try:
+            df_final.to_excel(self.output_excel, index=False, engine='openpyxl')
+            logger.info(_("✓ Resultados guardados en: %s"), self.output_excel)
+        except Exception as e:
+            logger.error(_("Error al guardar Excel: %s"), str(e))
+            raise
+        
+        # Store in history
+        self.metrics_history[model_name] = metrics
         
         return metrics
 
-    def generate_scatter_plot(self, y_true: pd.Series, y_pred: Any, model_name: str) -> None:
+    def generate_scatter_plot(
+        self, 
+        y_true: pd.Series, 
+        y_pred: Any, 
+        model_name: str
+    ) -> None:
         """Creates and saves an interactive scatter plot comparing predictions vs truth.
 
         This visualization plots the predicted digital scores on the Y-axis 
         against the actual paper-based scores on the X-axis. It includes a 
         diagonal reference line representing perfect prediction to help clinicians 
         visually assess the calibration quality and detect potential systemic bias.
+        Also includes residuals and error metrics.
 
         Args:
             y_true (pd.Series): The ground truth paper-based scores.
             y_pred (Any): The array of predictions generated by the model.
             model_name (str): The identifier of the algorithm to title the plot.
         """
-        logger.info(_("Generando visualizacion interactiva con Plotly para %s"), model_name)
+        logger.info(_("▶️ Generando visualización interactiva Plotly para %s"), model_name)
+        
+        y_true = np.asarray(y_true).flatten()
+        y_pred = np.asarray(y_pred).flatten()
+        residuals = y_true - y_pred
+        
+        # Calculate metrics for annotation
+        r2 = r2_score(y_true, y_pred)
+        rmse = root_mean_squared_error(y_true, y_pred)
+        mae = mean_absolute_error(y_true, y_pred)
         
         fig = go.Figure()
         
+        # Add scatter plot
         fig.add_trace(go.Scatter(
             x=y_true, 
             y=y_pred, 
-            mode='markers',
+            mode='markers+text',
             name=_('Predicciones'),
-            marker=dict(size=10, opacity=0.7)
+            marker=dict(
+                size=8, 
+                opacity=0.6,
+                color='rgba(31, 119, 180, 0.8)',
+                line=dict(width=1, color='rgba(31, 119, 180, 1)')
+            ),
+            text=[f"({yt:.1f}, {yp:.1f})" for yt, yp in zip(y_true, y_pred)],
+            textposition="top center",
+            hovertemplate="<b>Real: %{x:.2f}</b><br>Predicho: %{y:.2f}<extra></extra>"
         ))
         
-        min_val = min(min(y_true), min(y_pred))
-        max_val = max(max(y_true), max(y_pred))
+        # Add perfect prediction line
+        min_val = min(y_true.min(), y_pred.min())
+        max_val = max(y_true.max(), y_pred.max())
         
         fig.add_trace(go.Scatter(
             x=[min_val, max_val], 
             y=[min_val, max_val], 
             mode='lines', 
-            name=_('Referencia Ideal'),
-            line=dict(dash='dash', color='red')
+            name=_('Predicción Perfecta'),
+            line=dict(dash='dash', color='red', width=2)
         ))
         
+        # Add error bands
+        margin = rmse * 2
+        fig.add_trace(go.Scatter(
+            x=[min_val, max_val, max_val, min_val],
+            y=[min_val - margin, max_val - margin, max_val + margin, min_val + margin],
+            fill='toself',
+            name=_('Banda ±2σ'),
+            fillcolor='rgba(0, 100, 200, 0.1)',
+            line=dict(color='rgba(0, 100, 200, 0)')
+        ))
+        
+        # Update layout with metrics annotation
         fig.update_layout(
-            title=_("Calibracion de %s: Digital vs Papel") % model_name.upper(),
-            xaxis_title=_("Puntuacion Real (Test en Papel)"),
-            yaxis_title=_("Puntuacion Predicha (Test Digital)"),
-            template="plotly_white"
+            title=dict(
+                text=_("Calibración de %s: Digital vs Papel") % model_name.upper(),
+                x=0.5,
+                xanchor='center'
+            ),
+            xaxis_title=_("Puntuación Real (Test en Papel)"),
+            yaxis_title=_("Puntuación Predicha (Test Digital)"),
+            template="plotly_white",
+            hovermode='closest',
+            annotations=[
+                dict(
+                    text=_(f"R² = {r2:.3f}<br>RMSE = {rmse:.3f}<br>MAE = {mae:.3f}<br>N = {len(y_true)}"),
+                    xref="paper", yref="paper",
+                    x=0.02, y=0.98,
+                    showarrow=False,
+                    bgcolor="rgba(255, 255, 255, 0.8)",
+                    bordercolor="black",
+                    borderwidth=1
+                )
+            ]
         )
         
-        plot_path = self.output_html.replace(".html", f"_{model_name}.html")
+        fig.update_xaxes(zeroline=False, showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig.update_yaxes(zeroline=False, showgrid=True, gridwidth=1, gridcolor='LightGray')
+        
+        # Save plot
+        plot_path = str(Path(self.output_html).parent / f"calibration_{model_name}.html")
+        try:
+            fig.write_html(plot_path)
+            logger.info(_("✓ Gráfico interactivo guardado: %s"), plot_path)
+        except Exception as e:
+            logger.error(_("Error al guardar gráfico: %s"), str(e))
+            raise
+    
+    def generate_residuals_plot(
+        self, 
+        y_true: pd.Series, 
+        y_pred: Any, 
+        model_name: str
+    ) -> None:
+        """Creates a diagnostic residuals plot.
+        
+        Args:
+            y_true: Ground truth values
+            y_pred: Predictions
+            model_name: Model identifier
+        """
+        logger.info(_("Generando gráfico de residuos para %s"), model_name)
+        
+        y_true = np.asarray(y_true).flatten()
+        y_pred = np.asarray(y_pred).flatten()
+        residuals = y_true - y_pred
+        
+        fig = make_subplots(
+            rows=1, cols=2,
+            subplot_titles=(_("Residuos vs Predicción"), _("Distribución de Residuos"))
+        )
+        
+        # Residuals vs predicted
+        fig.add_trace(
+            go.Scatter(
+                x=y_pred, y=residuals, mode='markers',
+                name=_('Residuos'),
+                marker=dict(size=6, color='blue', opacity=0.6)
+            ),
+            row=1, col=1
+        )
+        
+        # Add zero line
+        fig.add_hline(y=0, line_dash="dash", line_color="red", row=1, col=1)
+        
+        # Histogram of residuals
+        fig.add_trace(
+            go.Histogram(
+                x=residuals, nbinsx=30,
+                name=_('Residuos'),
+                marker=dict(color='green', opacity=0.6)
+            ),
+            row=1, col=2
+        )
+        
+        fig.update_xaxes(title_text=_("Predicción"), row=1, col=1)
+        fig.update_yaxes(title_text=_("Residuo"), row=1, col=1)
+        fig.update_xaxes(title_text=_("Residuo"), row=1, col=2)
+        fig.update_yaxes(title_text=_("Frecuencia"), row=1, col=2)
+        
+        fig.update_layout(
+            title_text=_("Diagnóstico de Residuos: %s") % model_name.upper(),
+            showlegend=False,
+            height=400
+        )
+        
+        plot_path = str(Path(self.output_html).parent / f"residuals_{model_name}.html")
         fig.write_html(plot_path)
-        logger.info(_("Grafico interactivo exportado en %s"), plot_path)
+        logger.info(_("✓ Gráfico de residuos guardado: %s"), plot_path)

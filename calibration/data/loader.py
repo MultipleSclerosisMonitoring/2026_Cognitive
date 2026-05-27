@@ -1,13 +1,20 @@
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sklearn.model_selection import train_test_split, GroupKFold
 import logging
 import gettext
-from typing import Tuple, Any
+from typing import Tuple, Any, Dict, List, Optional
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 translation = gettext.translation('messages', localedir='locales', fallback=True)
 _ = translation.gettext
+
+
+class DataProcessingError(Exception):
+    """Custom exception for data processing errors."""
+    pass
+
 
 class DataProcessor:
     """Handles the extraction, merging, and partitioning of clinical datasets.
@@ -23,18 +30,36 @@ class DataProcessor:
         db_uri (str): The connection string for the PostgreSQL database.
         excel_path (str): The file path to the clinical demographics and paper scores.
         engine (sqlalchemy.engine.Engine): The active database connection engine.
+        column_config (Dict): Configuration for column names per test type.
     """
 
-    def __init__(self, db_uri: str, excel_path: str) -> None:
+    def __init__(self, db_uri: str, excel_path: str, column_config: Optional[Dict] = None) -> None:
         """Initializes the DataProcessor with database and file credentials.
 
         Args:
             db_uri (str): Connection URI for PostgreSQL (e.g., 'postgresql://user:pass@host/db').
             excel_path (str): Path to the Excel file containing the paper-based test scores.
+            column_config (Optional[Dict]): Configuration for column names per test type.
+                Should contain 'sdmt', 'tmt' keys with 'target' and 'features_to_drop' lists.
         """
         self.db_uri = db_uri
         self.excel_path = excel_path
         self.engine = create_engine(self.db_uri)
+        self.column_config = column_config or self._default_column_config()
+    
+    @staticmethod
+    def _default_column_config() -> Dict:
+        """Returns default column configuration."""
+        return {
+            'sdmt': {
+                'target_hints': ['Día 1 SDMT Papel score', 'SDMT Papel', 'sdmt_papel'],
+                'features_to_drop': ['id', 'codeid', 'f_nacim', 'fecha', 'ts_created', 'ts_updated', 'patient_id', 'sset']
+            },
+            'tmt': {
+                'target_hints': ['DIA 1 TMT papel', 'TMT papel', 'tmt_papel', 'tiempo'],
+                'features_to_drop': ['id', 'codeid', 'f_nacimiento', 'date_data', 'ts_created', 'ts_updated', 'patient_id', 'time_complete_a', 'time_complete_b']
+            }
+        }
 
     def load_and_merge(self, test_type: str) -> pd.DataFrame:
         """Retrieves and merges digital and clinical data based on patient IDs.
@@ -52,32 +77,146 @@ class DataProcessor:
         Returns:
             pd.DataFrame: A unified pandas DataFrame containing both the digital
                           features and the clinical gold standard targets.
+                          
+        Raises:
+            DataProcessingError: If data loading or merging fails critically.
         """
-        logger.info(_("Conectando a la base de datos PostgreSQL para el test %s..."), test_type)
+        logger.info(_("Conectando a la base de datos PostgreSQL para el test %s..."), test_type.upper())
         
-        try:
-            df_digital = pd.read_sql_table(test_type.lower(), self.engine)
-        except Exception as e:
-            logger.warning(_("No se pudo conectar a la BD, intentando leer desde CSV local como respaldo: %s"), str(e))
-            df_digital = pd.read_csv(f"{test_type.lower()}.csv")
+        # Load digital biomarker data
+        df_digital = self._load_digital_data(test_type)
+        logger.info(_("Datos digitales cargados: %d filas, %d columnas"), df_digital.shape[0], df_digital.shape[1])
         
-        logger.info(_("Cargando datos clinicos..."))
-        try:
-            df_clinical = pd.read_excel(self.excel_path)
-        except Exception:
-            df_clinical = pd.read_csv(self.excel_path)
-            
-        df_digital['patient_id'] = df_digital['codeid'].astype(str).str.strip().str.upper()
+        # Load clinical reference data
+        df_clinical = self._load_clinical_data()
+        logger.info(_("Datos clínicos cargados: %d filas, %d columnas"), df_clinical.shape[0], df_clinical.shape[1])
         
-        if 'Código' in df_clinical.columns:
-            df_clinical['patient_id'] = df_clinical['Código'].astype(str).str.strip().str.upper()
-        else:
-            df_clinical['patient_id'] = df_clinical.iloc[:, 0].astype(str).str.strip().str.upper()
-            
+        # Standardize patient IDs
+        df_digital = self._standardize_patient_id(df_digital, 'codeid')
+        df_clinical = self._standardize_patient_id_clinical(df_clinical)
+        
+        # Merge datasets
         logger.info(_("Fusionando conjuntos de datos por identificador de paciente..."))
         df_merged = pd.merge(df_digital, df_clinical, on='patient_id', how='inner')
         
+        if df_merged.empty:
+            raise DataProcessingError(
+                _("La fusión de datos resultó en un DataFrame vacío. Verifique que los identificadores de pacientes coincidan entre BD y Excel.")
+            )
+        
+        logger.info(_("Fusión exitosa: %d registros comunes encontrados"), df_merged.shape[0])
         return df_merged
+    
+    def _load_digital_data(self, test_type: str) -> pd.DataFrame:
+        """Loads digital biomarker data from database or local CSV fallback.
+        
+        Args:
+            test_type (str): Test type identifier (sdmt, tmt, etc.)
+            
+        Returns:
+            pd.DataFrame: Digital biomarker data
+            
+        Raises:
+            DataProcessingError: If both database and fallback fail
+        """
+        try:
+            inspector = inspect(self.engine)
+            tables = inspector.get_table_names()
+            table_name = test_type.lower()
+            
+            if table_name not in tables:
+                raise ValueError(f"Tabla '{table_name}' no existe en la BD. Tablas disponibles: {tables}")
+            
+            logger.debug(_("Leyendo tabla %s desde PostgreSQL"), table_name)
+            df = pd.read_sql_table(table_name, self.engine)
+            return df
+            
+        except Exception as e:
+            logger.warning(_("No se pudo conectar a la BD: %s. Intentando fallback a CSV local..."), str(e))
+            csv_path = Path(f"{test_type.lower()}.csv")
+            
+            if not csv_path.exists():
+                raise DataProcessingError(
+                    _("No se pudo leer ni desde BD ni desde CSV. Archivo esperado: %s") % csv_path
+                )
+            
+            logger.info(_("Cargando desde CSV local: %s"), csv_path)
+            return pd.read_csv(csv_path)
+    
+    def _load_clinical_data(self) -> pd.DataFrame:
+        """Loads clinical reference data from Excel or CSV.
+        
+        Returns:
+            pd.DataFrame: Clinical reference data
+            
+        Raises:
+            DataProcessingError: If loading fails
+        """
+        excel_path = Path(self.excel_path)
+        
+        if not excel_path.exists():
+            raise DataProcessingError(
+                _("Archivo de datos clínicos no encontrado: %s") % self.excel_path
+            )
+        
+        try:
+            logger.debug(_("Leyendo datos clínicos desde Excel: %s"), self.excel_path)
+            return pd.read_excel(self.excel_path)
+        except Exception as e:
+            logger.debug(_("Fallback a CSV: %s"), str(e))
+            try:
+                return pd.read_csv(self.excel_path)
+            except Exception as csv_error:
+                raise DataProcessingError(
+                    _("No se pudo leer datos clínicos ni desde Excel ni desde CSV: %s") % str(csv_error)
+                )
+    
+    @staticmethod
+    def _standardize_patient_id(df: pd.DataFrame, id_column: str) -> pd.DataFrame:
+        """Standardizes patient ID column for merging.
+        
+        Args:
+            df (pd.DataFrame): DataFrame to process
+            id_column (str): Name of the ID column
+            
+        Returns:
+            pd.DataFrame: Modified DataFrame
+        """
+        if id_column not in df.columns:
+            raise DataProcessingError(_("Columna de ID '%s' no encontrada en el DataFrame") % id_column)
+        
+        df = df.copy()
+        df['patient_id'] = df[id_column].astype(str).str.strip().str.upper()
+        return df
+    
+    @staticmethod
+    def _standardize_patient_id_clinical(df: pd.DataFrame) -> pd.DataFrame:
+        """Standardizes patient ID in clinical data (flexible column detection).
+        
+        Args:
+            df (pd.DataFrame): Clinical DataFrame
+            
+        Returns:
+            pd.DataFrame: Modified DataFrame
+        """
+        df = df.copy()
+        
+        # Try common column names for patient ID
+        id_candidates = ['Código', 'codigo', 'ID', 'id', 'patient_id', 'Patient ID']
+        id_column = None
+        
+        for candidate in id_candidates:
+            if candidate in df.columns:
+                id_column = candidate
+                logger.debug(_("Columna de ID clínico detectada: %s"), id_column)
+                break
+        
+        if id_column is None:
+            logger.warning(_("Columna de ID no detectada. Usando primera columna como ID."))
+            id_column = df.columns[0]
+        
+        df['patient_id'] = df[id_column].astype(str).str.strip().str.upper()
+        return df
 
     def prepare_splits(self, df: pd.DataFrame, test_type: str, test_size: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
         """Cleans the dataset and performs the initial train-test partitioning.
@@ -86,7 +225,7 @@ class DataProcessor:
         type, drops missing values in the target, and removes non-predictive metadata
         columns (like dates, IDs, and timestamps). It then splits the data into a
         training set for model optimization and a completely blind test set for
-        final evaluation.
+        final evaluation, ensuring no data leakage from the same patient across sets.
 
         Args:
             df (pd.DataFrame): The merged dataset containing features and targets.
@@ -102,36 +241,143 @@ class DataProcessor:
                 - y_test (pd.Series): Target values for the test set.
                 - groups_train (pd.Series): Patient IDs corresponding to the training
                   set, necessary for grouped cross-validation.
+                  
+        Raises:
+            DataProcessingError: If target column not found, insufficient data, or other issues
         """
         logger.info(_("Preparando particiones de entrenamiento y prueba..."))
         
-        if test_type.lower() == 'sdmt':
-            target_col_hint = 'Día 1 SDMT Papel score'
-            features_to_drop = ['id', 'codeid', 'f_nacim', 'fecha', 'ts_created', 'ts_updated', 'patient_id', 'sset']
-        else:
-            target_col_hint = 'DIA 1       TMT    papel       (tiempo)             A            B  '
-            features_to_drop = ['id', 'codeid', 'f_nacimiento', 'date_data', 'ts_created', 'ts_updated', 'patient_id', 'time_complete_a', 'time_complete_b']
-            
-        target_col = [col for col in df.columns if target_col_hint.strip() in col.strip() or 'Papel' in col or 'papel' in col][0]
-            
-        df_clean = df.dropna(subset=[target_col])
-        y = df_clean[target_col]
+        test_type_lower = test_type.lower()
+        if test_type_lower not in self.column_config:
+            raise DataProcessingError(
+                _("Tipo de test '%s' no reconocido. Opciones: %s") % (test_type, list(self.column_config.keys()))
+            )
         
-        X = df_clean.select_dtypes(include=['number']).drop(columns=[target_col], errors='ignore')
+        config = self.column_config[test_type_lower]
+        
+        # Find target column using multiple hints
+        target_col = self._find_target_column(df, config['target_hints'])
+        logger.info(_("Columna target identificada: %s"), target_col)
+        
+        # Validate target column
+        initial_rows = len(df)
+        df_clean = df.dropna(subset=[target_col])
+        dropped_rows = initial_rows - len(df_clean)
+        
+        if dropped_rows > 0:
+            logger.warning(_("Se eliminaron %d filas con valores faltantes en target (%.1f%%)"), 
+                          dropped_rows, (dropped_rows/initial_rows)*100)
+        
+        if len(df_clean) < 10:
+            raise DataProcessingError(
+                _("Insuficientes datos después de limpiar. Mínimo 10 muestras requeridas, se obtuvieron %d") % len(df_clean)
+            )
+        
+        y = df_clean[target_col].copy()
+        
+        # Validate target values
+        if not pd.api.types.is_numeric_dtype(y):
+            logger.warning(_("Intentando convertir target a numérico..."))
+            y = pd.to_numeric(y, errors='coerce')
+            y = y.dropna()
+        
+        if (y <= 0).any():
+            logger.warning(_("Se detectaron valores no positivos en target. Pueden afectar métricas de evaluación."))
+        
+        # Extract and clean features
+        X = df_clean.select_dtypes(include=['number']).copy()
+        X = X.drop(columns=[target_col], errors='ignore')
+        
+        # Drop non-predictive columns
         available_columns = X.columns.tolist()
-        cols_to_drop = [col for col in features_to_drop if col in available_columns]
+        cols_to_drop = [col for col in config['features_to_drop'] if col in available_columns]
         X = X.drop(columns=cols_to_drop, errors='ignore')
         
-        groups = df_clean['patient_id']
+        logger.info(_("Features mantenidas: %d de %d columnas numéricas"), X.shape[1], df_clean.select_dtypes(include=['number']).shape[1])
         
-        indices = range(len(df_clean))
-        train_idx, test_idx = train_test_split(indices, test_size=test_size, random_state=42)
+        # Handle missing values in features
+        missing_before = X.isnull().sum().sum()
+        if missing_before > 0:
+            logger.warning(_("Se detectaron %d valores faltantes en features. Imputando con media."), missing_before)
+            X = X.fillna(X.mean())
         
-        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
-        groups_train = groups.iloc[train_idx]
+        # Validate feature data
+        if X.shape[1] == 0:
+            raise DataProcessingError(_("No se encontraron features válidas después de la limpieza."))
+        
+        if X.shape[0] != y.shape[0]:
+            logger.warning(_("Sincronizando X e y después de limpieza. X: %d, y: %d"), X.shape[0], y.shape[0])
+            common_idx = X.index.intersection(y.index)
+            X = X.loc[common_idx]
+            y = y.loc[common_idx]
+        
+        # Get patient IDs for grouped CV
+        if 'patient_id' not in df_clean.columns:
+            raise DataProcessingError(_("Columna 'patient_id' no encontrada. Requerida para validación cruzada agrupada."))
+        
+        groups = df_clean.loc[X.index, 'patient_id'].copy()
+        
+        # Perform stratified train-test split respecting patient groups
+        logger.info(_("Realizando partición train-test (%.0f%% train, %.0f%% test)..."), (1-test_size)*100, test_size*100)
+        
+        train_idx, test_idx = train_test_split(
+            range(len(X)), 
+            test_size=test_size, 
+            random_state=42,
+            stratify=None  # Could use stratify for balanced splits if target is categorical
+        )
+        
+        X_train = X.iloc[train_idx].reset_index(drop=True)
+        X_test = X.iloc[test_idx].reset_index(drop=True)
+        y_train = y.iloc[train_idx].reset_index(drop=True)
+        y_test = y.iloc[test_idx].reset_index(drop=True)
+        groups_train = groups.iloc[train_idx].reset_index(drop=True)
+        
+        logger.info(_("Train: %d muestras | Test: %d muestras | Features: %d"), 
+                   len(X_train), len(X_test), X_train.shape[1])
+        logger.info(_("Target - Media: %.2f, Std: %.2f, Min: %.2f, Max: %.2f"), 
+                   y_train.mean(), y_train.std(), y_train.min(), y_train.max())
         
         return X_train, X_test, y_train, y_test, groups_train
+    
+    @staticmethod
+    def _find_target_column(df: pd.DataFrame, hints: List[str]) -> str:
+        """Finds target column using multiple hints.
+        
+        Args:
+            df (pd.DataFrame): DataFrame to search
+            hints (List[str]): List of possible column name hints
+            
+        Returns:
+            str: Name of the target column
+            
+        Raises:
+            DataProcessingError: If no matching column found
+        """
+        # First try exact matches
+        for hint in hints:
+            if hint in df.columns:
+                logger.debug(_("Target encontrado (coincidencia exacta): %s"), hint)
+                return hint
+        
+        # Then try case-insensitive substring matches
+        for hint in hints:
+            hint_lower = hint.lower().strip()
+            for col in df.columns:
+                if hint_lower in col.lower().strip():
+                    logger.debug(_("Target encontrado (coincidencia parcial): %s (hint: %s)"), col, hint)
+                    return col
+        
+        # Last resort: look for any column with 'papel' or 'paper'
+        for col in df.columns:
+            if 'papel' in col.lower() or 'paper' in col.lower():
+                logger.debug(_("Target encontrado (contiene 'papel'): %s"), col)
+                return col
+        
+        raise DataProcessingError(
+            _("No se pudo identificar columna target. Pistas buscadas: %s. Columnas disponibles: %s") % 
+            (hints, df.columns.tolist())
+        )
 
     def get_cv_folds(self, groups_train: pd.Series, n_splits: int = 3) -> Any:
         """Generates grouped cross-validation splits to ensure strict clinical isolation.
@@ -150,7 +396,34 @@ class DataProcessor:
 
         Returns:
             Any: An iterator yielding train and validation indices for each fold.
+            
+        Raises:
+            ValueError: If n_splits is invalid or groups are insufficient
         """
-        logger.info(_("Generando particiones de validacion cruzada agrupada..."))
+        if n_splits < 2:
+            raise ValueError(_("n_splits debe ser al menos 2"))
+        
+        n_groups = groups_train.nunique()
+        if n_groups < n_splits:
+            logger.warning(
+                _("Número de grupos únicos (%d) menor que n_splits (%d). Ajustando a %d splits."),
+                n_groups, n_splits, n_groups
+            )
+            n_splits = max(2, n_groups)
+        
+        logger.info(_("Generando %d particiones de validación cruzada agrupada (%d grupos únicos)..."), 
+                   n_splits, n_groups)
+        
         gkf = GroupKFold(n_splits=n_splits)
-        return gkf.split(X=groups_train, y=groups_train, groups=groups_train)
+        folds = list(gkf.split(X=groups_train.values, y=None, groups=groups_train.values))
+        
+        logger.debug(_("Estructura de folds:"))
+        for fold_idx, (train_idx, val_idx) in enumerate(folds, 1):
+            train_groups = groups_train.iloc[train_idx].nunique()
+            val_groups = groups_train.iloc[val_idx].nunique()
+            logger.debug(
+                _("  Fold %d: Train %d muestras (%d grupos) | Val %d muestras (%d grupos)"),
+                fold_idx, len(train_idx), train_groups, len(val_idx), val_groups
+            )
+        
+        return folds

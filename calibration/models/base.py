@@ -2,10 +2,11 @@ import joblib
 import logging
 import gettext
 from abc import ABC, abstractmethod
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 import pandas as pd
 import numpy as np
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Any, Optional
+from pathlib import Path
 
 # Configuración del registrador local para este submódulo
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 # Configuración de traducción con soporte de contingencia (fallback)
 translation = gettext.translation('messages', localedir='locales', fallback=True)
 _ = translation.gettext
+
 
 class ModelMetrics(BaseModel):
     """Data validation model for regression metrics using Pydantic.
@@ -28,9 +30,18 @@ class ModelMetrics(BaseModel):
         r2_score (float): Coefficient of determination. Represents the
             proportion of the variance in the dependent variable that is
             predictable from the independent variables.
+        mae (float, optional): Mean Absolute Error.
+        mape (float, optional): Mean Absolute Percentage Error.
     """
     rmse: float
     r2_score: float
+    mae: Optional[float] = None
+    mape: Optional[float] = None
+
+
+class PipelineNotTrainedError(RuntimeError):
+    """Exception raised when attempting operations on untrained pipeline."""
+    pass
 
 
 class BaseModelCalibrator(ABC):
@@ -49,6 +60,9 @@ class BaseModelCalibrator(ABC):
         feature_ranges (Dict[str, Tuple[float, float]]): A dictionary mapping
             feature names to their observed (min, max) values during training.
             Crucial for preventing silent extrapolation during inference.
+        metadata (Dict): Training metadata including model type, date, feature names
+        n_features (int): Number of features the model was trained on
+        feature_names (List[str]): Names of features for validation
     """
 
     def __init__(self) -> None:
@@ -60,6 +74,21 @@ class BaseModelCalibrator(ABC):
         self.model: Any = None
         self.scaler: Any = None
         self.feature_ranges: Dict[str, Tuple[float, float]] = {}
+        self.metadata: Dict[str, Any] = {}
+        self.n_features: int = 0
+        self.feature_names: Optional[list] = None
+        self._is_trained: bool = False
+
+    def _check_trained(self) -> None:
+        """Validates that the model has been trained.
+        
+        Raises:
+            PipelineNotTrainedError: If model is not trained
+        """
+        if not self._is_trained or self.model is None or self.scaler is None:
+            raise PipelineNotTrainedError(
+                _("El modelo no puede ser utilizado porque el pipeline de entrenamiento no ha finalizado.")
+            )
 
     @abstractmethod
     def train(self, X: pd.DataFrame, y: pd.Series, **kwargs: Any) -> None:
@@ -77,10 +106,25 @@ class BaseModelCalibrator(ABC):
 
         Raises:
             NotImplementedError: If the child class fails to implement this method.
+            ValueError: If input data is invalid
         """
+        # Validate input
+        if X.empty or y.empty:
+            raise ValueError(_("Las matrices X e y no pueden estar vacías"))
+        
+        if len(X) != len(y):
+            raise ValueError(_("X e y deben tener la misma cantidad de muestras"))
+        
+        if X.isnull().any().any():
+            raise ValueError(_("X contiene valores nulos. Pre-procese los datos antes del entrenamiento"))
+        
+        # Store feature information
+        self.feature_names = X.columns.tolist()
+        self.n_features = X.shape[1]
+        logger.info(_("Inicializando entrenamiento con %d features: %s"), self.n_features, self.feature_names[:3])
         pass
 
-    def check_boundaries(self, X: pd.DataFrame) -> None:
+    def check_boundaries(self, X: pd.DataFrame) -> Dict[str, list]:
         """Validates that incoming data falls within historically safe limits.
 
         To ensure clinical safety, this method inspects each feature of the
@@ -93,41 +137,65 @@ class BaseModelCalibrator(ABC):
             X (pd.DataFrame): The new feature matrix to be evaluated prior to inference.
 
         Returns:
-            None: Emits logging warnings but does not halt the execution flow.
+            Dict with feature names and out-of-range values
+
+        Raises:
+            ValueError: If feature count doesn't match training
         """
+        if X.shape[1] != self.n_features:
+            raise ValueError(
+                _("Número de features inconsistente. Esperado: %d, Recibido: %d") % (self.n_features, X.shape[1])
+            )
+        
+        out_of_range_features = {}
+        
         for col in X.columns:
-            # Retrieve the safe tuple (min, max) for the current feature
             if col in self.feature_ranges:
                 min_val, max_val = self.feature_ranges[col]
                 
-                # Check if all values in the column fall within the safe boundaries
-                if not X[col].between(min_val, max_val).all():
+                # Check boundaries
+                below_min = X[col] < min_val
+                above_max = X[col] > max_val
+                
+                if below_min.any() or above_max.any():
+                    out_of_range_features[col] = {
+                        'min_expected': min_val,
+                        'max_expected': max_val,
+                        'min_observed': float(X[col].min()),
+                        'max_observed': float(X[col].max()),
+                        'n_violations': int((below_min | above_max).sum())
+                    }
+                    
                     logger.warning(
-                        _("Alerta clinica: Valores fuera del rango de entrenamiento detectados en la caracteristica '%s'."), 
-                        col
+                        _("⚠️ Alerta clinica: Valores fuera del rango de entrenamiento en '%s'. Entrenamiento: [%.2f, %.2f], Observado: [%.2f, %.2f] (%d violaciones)"),
+                        col, min_val, max_val, X[col].min(), X[col].max(), (below_min | above_max).sum()
                     )
             else:
                 logger.debug(_("Caracteristica '%s' no encontrada en los rangos de entrenamiento base."), col)
+        
+        return out_of_range_features
 
-    def save(self, filepath: str) -> None:
+    def save(self, filepath: str, include_metadata: bool = True) -> None:
         """Serializes and saves the complete model pipeline to disk.
 
         This method exports not just the final mathematical model, but also
-        the fitted scaler and the safety boundaries dictionary. This ensures
+        the fitted scaler, safety boundaries dictionary, and metadata. This ensures
         that when the model is loaded in the future, it retains exact knowledge
         of how to pre-process new data and when to issue extrapolation warnings.
 
         Args:
             filepath (str): The destination path (including filename) where
                 the binary object will be saved.
+            include_metadata (bool): Whether to save metadata alongside the model
 
         Raises:
-            RuntimeError: If attempting to save a model pipeline before it has been trained.
-            IOError: If there are permission or path issues writing the file to disk.
+            PipelineNotTrainedError: If attempting to save an untrained model
+            IOError: If there are permission or path issues writing the file to disk
         """
-        if self.model is None or self.scaler is None:
-            logger.error(_("Intento critico de guardar un modelo no inicializado o no entrenado."))
-            raise RuntimeError(_("El modelo no puede ser guardado porque el pipeline de entrenamiento no ha finalizado."))
+        self._check_trained()
+        
+        filepath = Path(filepath)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(_("Guardando pipeline completo (modelo, escalador y limites de seguridad) en: %s"), filepath)
         
@@ -135,8 +203,44 @@ class BaseModelCalibrator(ABC):
         pipeline_state = {
             'model': self.model,
             'scaler': self.scaler,
-            'ranges': self.feature_ranges
+            'ranges': self.feature_ranges,
+            'n_features': self.n_features,
+            'feature_names': self.feature_names,
+            'metadata': self.metadata
         }
         
-        joblib.dump(pipeline_state, filepath)
-        logger.info(_("Guardado del binario en disco completado exitosamente."))
+        try:
+            joblib.dump(pipeline_state, filepath)
+            logger.info(_("✓ Pipeline guardado exitosamente"))
+        except IOError as e:
+            logger.error(_("Error al guardar pipeline: %s"), str(e))
+            raise
+
+    @classmethod
+    def load(cls, filepath: str) -> 'BaseModelCalibrator':
+        """Loads a previously trained model pipeline from disk.
+
+        Args:
+            filepath (str): Path to the saved pipeline file
+
+        Returns:
+            BaseModelCalibrator: Loaded model instance
+
+        Raises:
+            FileNotFoundError: If file does not exist
+            RuntimeError: If pipeline file is corrupted
+        """
+        filepath = Path(filepath)
+        
+        if not filepath.exists():
+            raise FileNotFoundError(_("Archivo de modelo no encontrado: %s") % filepath)
+        
+        logger.info(_("Cargando pipeline desde: %s"), filepath)
+        
+        try:
+            pipeline_state = joblib.load(filepath)
+            logger.info(_("✓ Pipeline cargado exitosamente"))
+            return pipeline_state
+        except Exception as e:
+            logger.error(_("Error al cargar pipeline: %s"), str(e))
+            raise RuntimeError(_("No se pudo cargar el archivo de modelo. Archivo corrupto.")) from e

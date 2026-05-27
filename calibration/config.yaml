@@ -5,6 +5,38 @@ data:
   db_port: "5432"       # Fallback, overridden by DB_PORT env var
   excel_path: "./data/datos_papel.xlsx"
   test_type: "sdmt"
+  # Column configuration per test type
+  column_mapping:
+    sdmt:
+      target_hints:
+        - "Día 1 SDMT Papel score"
+        - "SDMT Papel"
+        - "sdmt_papel"
+      features_to_drop:
+        - "id"
+        - "codeid"
+        - "f_nacim"
+        - "fecha"
+        - "ts_created"
+        - "ts_updated"
+        - "patient_id"
+        - "sset"
+    tmt:
+      target_hints:
+        - "DIA 1 TMT papel"
+        - "TMT papel"
+        - "tmt_papel"
+        - "tiempo"
+      features_to_drop:
+        - "id"
+        - "codeid"
+        - "f_nacimiento"
+        - "date_data"
+        - "ts_created"
+        - "ts_updated"
+        - "patient_id"
+        - "time_complete_a"
+        - "time_complete_b"
 models:
   - type: "linear"
     cv_folds: 3
