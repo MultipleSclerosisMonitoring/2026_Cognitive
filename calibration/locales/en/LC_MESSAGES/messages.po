@@ -1,0 +1,200 @@
+
+## English translations for PACKAGE package.
+## Copyright (C) 2026 THE PACKAGE'S COPYRIGHT HOLDER
+## This file is distributed under the same license as the PACKAGE package.
+## Joaquin Ordieres Mere , 2026.
+
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-27 12:17+0200\n"
+"PO-Revision-Date: 2026-05-27 12:20+0200\n"
+"Last-Translator: Joaquin Ordieres Mere \n"
+"Language-Team: English \n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: calibration/main.py:57
+msgid "Sistema de calibracion de tests cognitivos SDMT y TMT para dispositivos moviles."
+msgstr "Calibration system for SDMT and TMT cognitive tests on mobile devices."
+
+#: calibration/main.py:62
+msgid "Ruta absoluta o relativa al archivo YAML que contiene la configuracion del experimento."
+msgstr "Absolute or relative path to the YAML file containing the experiment configuration."
+
+#: calibration/main.py:69
+msgid "Nivel de verbosidad (0=Critico, 4=Depuracion maxima). Por defecto es 2 (Avisos)."
+msgstr "Verbosity level (0=Critical, 4=Maximum debugging). Default is 2 (Warnings)."
+
+#: calibration/main.py:79
+msgid "Fallo critico al leer el archivo de configuracion YAML: %s"
+msgstr "Critical failure while reading the YAML configuration file: %s"
+
+#: calibration/main.py:89
+msgid "Iniciando el proceso de calibracion con configuracion: %s"
+msgstr "Starting calibration process with configuration: %s"
+
+#: calibration/main.py:103
+msgid "Procesando extraccion de datos para el test objetivo: %s"
+msgstr "Processing data extraction for target test: %s"
+
+#: calibration/main.py:111
+msgid "Se han detectado %d modelo(s) en la cola de ejecucion."
+msgstr "%d model(s) detected in execution queue."
+
+#: calibration/main.py:121
+msgid "--- [Iteracion %d/%d] Iniciando pipeline para modelo: %s ---"
+msgstr "--- [Iteration %d/%d] Starting pipeline for model: %s ---"
+
+#: calibration/main.py:127
+msgid "Instancia de %s generada correctamente. Iniciando ajuste."
+msgstr "Instance of %s successfully created. Starting training."
+
+#: calibration/main.py:138
+msgid "Entrenamiento finalizado para %s. Obteniendo predicciones ciegas..."
+msgstr "Training completed for %s. Generating blind predictions..."
+
+#: calibration/main.py:142
+msgid "Generando reportes y metricas clinicas..."
+msgstr "Generating reports and clinical metrics..."
+
+#: calibration/main.py:146
+msgid "Modelo %s evaluado con exito. RMSE: %.4f R2: %.4f"
+msgstr "Model %s successfully evaluated. RMSE: %.4f R2: %.4f"
+
+#: calibration/main.py:149
+msgid "Error de configuracion para el modelo %s: %s"
+msgstr "Configuration error for model %s: %s"
+
+#: calibration/main.py:151
+msgid "Error critico e inesperado ejecutando el modelo %s: %s"
+msgstr "Critical and unexpected error while executing model %s: %s"
+
+#: calibration/main.py:153
+msgid "Ejecucion global completada. Todos los modelos han sido procesados y reportados."
+msgstr "Global execution completed. All models have been processed and reported."
+
+#: calibration/models/algoritmos.py:89
+msgid "Iniciando fase de entrenamiento y pre-procesamiento de datos."
+msgstr "Starting training and data preprocessing phase."
+
+#: calibration/models/algoritmos.py:99
+msgid "Iniciando búsqueda ALEATORIA en espacio de parámetros con %d intentos máximos."
+msgstr "Starting RANDOM search in parameter space with %d maximum attempts."
+
+#: calibration/models/algoritmos.py:110
+msgid "Iniciando búsqueda EXHAUSTIVA (Grid) en el espacio de parámetros."
+msgstr "Starting EXHAUSTIVE (Grid) search in parameter space."
+
+#: calibration/models/algoritmos.py:122
+msgid "Optimización concluida. Mejores hiperparámetros: %s"
+msgstr "Optimization complete. Best hyperparameters: %s"
+
+#: calibration/models/algoritmos.py:125
+msgid "No se detectó malla de parámetros. Entrenando modelo de forma determinista con valores por defecto."
+msgstr "No parameter grid detected. Training model deterministically with default values."
+
+#: calibration/models/algoritmos.py:129
+msgid "El estimador predictivo se ha ajustado exitosamente y está listo para inferencia."
+msgstr "Predictive estimator successfully fitted and ready for inference."
+
+#: calibration/models/algoritmos.py:150
+msgid "No se puede inferir: el modelo aún no ha sido ajustado. Llame a train() primero."
+msgstr "Cannot infer: the model has not been fitted yet. Call train() first."
+
+#: calibration/models/algoritmos.py:187
+msgid "Identificador de modelo no válido: '%s'. Opciones disponibles: %s"
+msgstr "Invalid model identifier: '%s'. Available options: %s"
+
+#: calibration/models/base.py:106
+msgid "Alerta clinica: Valores fuera del rango de entrenamiento detectados en la caracteristica '%s'."
+msgstr "Clinical alert: Values outside training range detected in feature '%s'."
+
+#: calibration/models/base.py:110
+msgid "Caracteristica '%s' no encontrada en los rangos de entrenamiento base."
+msgstr "Feature '%s' not found in base training ranges."
+
+#: calibration/models/base.py:129
+msgid "Intento critico de guardar un modelo no inicializado o no entrenado."
+msgstr "Critical attempt to save an uninitialized or untrained model."
+
+#: calibration/models/base.py:130
+msgid "El modelo no puede ser guardado porque el pipeline de entrenamiento no ha finalizado."
+msgstr "The model cannot be saved because the training pipeline has not finished."
+
+#: calibration/models/base.py:132
+msgid "Guardando pipeline completo (modelo, escalador y limites de seguridad) en: %s"
+msgstr "Saving full pipeline (model, scaler, and safety limits) to: %s"
+
+#: calibration/models/base.py:142
+msgid "Guardado del binario en disco completado exitosamente."
+msgstr "Binary successfully saved to disk."
+
+#: calibration/data/loader.py:56
+msgid "Conectando a la base de datos PostgreSQL para el test %s..."
+msgstr "Connecting to PostgreSQL database for test %s..."
+
+#: calibration/data/loader.py:61
+msgid "No se pudo conectar a la BD, intentando leer desde CSV local como respaldo: %s"
+msgstr "Failed to connect to the database, attempting to read from local CSV as fallback: %s"
+
+#: calibration/data/loader.py:64
+msgid "Cargando datos clinicos..."
+msgstr "Loading clinical data..."
+
+#: calibration/data/loader.py:77
+msgid "Fusionando conjuntos de datos por identificador de paciente..."
+msgstr "Merging datasets by patient identifier..."
+
+#: calibration/data/loader.py:106
+msgid "Preparando particiones de entrenamiento y prueba..."
+msgstr "Preparing training and test splits..."
+
+#: calibration/data/loader.py:154
+msgid "Generando particiones de validacion cruzada agrupada..."
+msgstr "Generating grouped cross-validation splits..."
+
+#: calibration/utils/reporting.py:54
+msgid "Calculando metricas de rendimiento para el modelo %s"
+msgstr "Calculating performance metrics for model %s"
+
+#: calibration/utils/reporting.py:65
+msgid "Metricas obtenidas - RMSE: %.4f, R2: %.4f"
+msgstr "Metrics obtained - RMSE: %.4f, R2: %.4f"
+
+#: calibration/utils/reporting.py:76
+msgid "Resultados guardados exitosamente en %s"
+msgstr "Results successfully saved to %s"
+
+#: calibration/utils/reporting.py:93
+msgid "Generando visualizacion interactiva con Plotly para %s"
+msgstr "Generating interactive Plotly visualization for %s"
+
+#: calibration/utils/reporting.py:101
+msgid "Predicciones"
+msgstr "Predictions"
+
+#: calibration/utils/reporting.py:112
+msgid "Referencia Ideal"
+msgstr "Ideal Reference"
+
+#: calibration/utils/reporting.py:117
+msgid "Calibracion de %s: Digital vs Papel"
+msgstr "Calibration of %s: Digital vs Paper"
+
+#: calibration/utils/reporting.py:118
+msgid "Puntuacion Real (Test en Papel)"
+msgstr "Actual Score (Paper Test)"
+
+#: calibration/utils/reporting.py:119
+msgid "Puntuacion Predicha (Test Digital)"
+msgstr "Predicted Score (Digital Test)"
+
+#: calibration/utils/reporting.py:125
+msgid "Grafico interactivo exportado en %s"
+msgstr "Interactive chart exported to %s"
+

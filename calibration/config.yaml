@@ -1,0 +1,24 @@
+data:
+  db_uri: "postgresql://lectura:ncorrea#2022@apiivm78.etsii.upm.es/CognitiveSclerosis"
+  excel_path: "./data/datos_papel.xlsx"
+  test_type: "sdmt"
+models:
+  - type: "linear"
+    cv_folds: 3
+  - type: "rf"
+    cv_folds: 3
+    search_strategy: "random"
+    n_iter: 50
+    param_grid:
+      n_estimators: [50, 100]
+      max_depth: [null, 10]
+  - type: "xgboost"
+    cv_folds: 3
+    search_strategy: "grid"
+    param_grid:
+      learning_rate: [0.01, 0.1]
+      max_depth: [3, 5]
+output:
+  excel_report: "resultados.xlsx"
+  html_plot: "graficos.html"
+language: "en"

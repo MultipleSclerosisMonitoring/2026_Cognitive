@@ -1,0 +1,199 @@
+## French translations for PACKAGE package.
+## Copyright (C) 2026 THE PACKAGE'S COPYRIGHT HOLDER
+## This file is distributed under the same license as the PACKAGE package.
+## Joaquin Ordieres Mere , 2026.
+
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-27 12:17+0200\n"
+"PO-Revision-Date: 2026-05-27 12:20+0200\n"
+"Last-Translator: Joaquin Ordieres Mere \n"
+"Language-Team: French \n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: calibration/main.py:57
+msgid "Sistema de calibracion de tests cognitivos SDMT y TMT para dispositivos moviles."
+msgstr "Système de calibration des tests cognitifs SDMT et TMT pour appareils mobiles."
+
+#: calibration/main.py:62
+msgid "Ruta absoluta o relativa al archivo YAML que contiene la configuracion del experimento."
+msgstr "Chemin absolu ou relatif vers le fichier YAML contenant la configuration de l'expérience."
+
+#: calibration/main.py:69
+msgid "Nivel de verbosidad (0=Critico, 4=Depuracion maxima). Por defecto es 2 (Avisos)."
+msgstr "Niveau de verbosité (0=Critique, 4=Débogage maximal). La valeur par défaut est 2 (Avertissements)."
+
+#: calibration/main.py:79
+msgid "Fallo critico al leer el archivo de configuracion YAML: %s"
+msgstr "Échec critique lors de la lecture du fichier de configuration YAML : %s"
+
+#: calibration/main.py:89
+msgid "Iniciando el proceso de calibracion con configuracion: %s"
+msgstr "Démarrage du processus de calibration avec la configuration : %s"
+
+#: calibration/main.py:103
+msgid "Procesando extraccion de datos para el test objetivo: %s"
+msgstr "Traitement de l'extraction des données pour le test cible : %s"
+
+#: calibration/main.py:111
+msgid "Se han detectado %d modelo(s) en la cola de ejecucion."
+msgstr "%d modèle(s) détecté(s) dans la file d'exécution."
+
+#: calibration/main.py:121
+msgid "--- [Iteracion %d/%d] Iniciando pipeline para modelo: %s ---"
+msgstr "--- [Itération %d/%d] Démarrage du pipeline pour le modèle : %s ---"
+
+#: calibration/main.py:127
+msgid "Instancia de %s generada correctamente. Iniciando ajuste."
+msgstr "Instance de %s générée avec succès. Démarrage de l'entraînement."
+
+#: calibration/main.py:138
+msgid "Entrenamiento finalizado para %s. Obteniendo predicciones ciegas..."
+msgstr "Entraînement terminé pour %s. Génération de prédictions à l'aveugle..."
+
+#: calibration/main.py:142
+msgid "Generando reportes y metricas clinicas..."
+msgstr "Génération de rapports et de métriques cliniques..."
+
+#: calibration/main.py:146
+msgid "Modelo %s evaluado con exito. RMSE: %.4f  R2: %.4f"
+msgstr "Modèle %s évalué avec succès. RMSE : %.4f  R2 : %.4f"
+
+#: calibration/main.py:149
+msgid "Error de configuracion para el modelo %s: %s"
+msgstr "Erreur de configuration pour le modèle %s : %s"
+
+#: calibration/main.py:151
+msgid "Error critico e inesperado ejecutando el modelo %s: %s"
+msgstr "Erreur critique et inattendue lors de l'exécution du modèle %s : %s"
+
+#: calibration/main.py:153
+msgid "Ejecucion global completada. Todos los modelos han sido procesados y reportados."
+msgstr "Exécution globale terminée. Tous les modèles ont été traités et rapportés."
+
+#: calibration/models/algoritmos.py:89
+msgid "Iniciando fase de entrenamiento y pre-procesamiento de datos."
+msgstr "Démarrage de la phase d'entraînement et de prétraitement des données."
+
+#: calibration/models/algoritmos.py:99
+msgid "Iniciando búsqueda ALEATORIA en espacio de parámetros con %d intentos máximos."
+msgstr "Démarrage de la recherche ALÉATOIRE dans l'espace des paramètres avec %d tentatives maximales."
+
+#: calibration/models/algoritmos.py:110
+msgid "Iniciando búsqueda EXHAUSTIVA (Grid) en el espacio de parámetros."
+msgstr "Démarrage de la recherche EXHAUSTIVE (Grid) dans l'espace des paramètres."
+
+#: calibration/models/algoritmos.py:122
+msgid "Optimización concluida. Mejores hiperparámetros: %s"
+msgstr "Optimisation terminée. Meilleurs hyperparamètres : %s"
+
+#: calibration/models/algoritmos.py:125
+msgid "No se detectó malla de parámetros. Entrenando modelo de forma determinista con valores por defecto."
+msgstr "Aucune grille de paramètres détectée. Entraînement du modèle de manière déterministe avec les valeurs par défaut."
+
+#: calibration/models/algoritmos.py:129
+msgid "El estimador predictivo se ha ajustado exitosamente y está listo para inferencia."
+msgstr "L'estimateur prédictif a été ajusté avec succès et est prêt pour l'inférence."
+
+#: calibration/models/algoritmos.py:150
+msgid "No se puede inferir: el modelo aún no ha sido ajustado. Llame a train() primero."
+msgstr "Impossible d'inférer : le modèle n'a pas encore été ajusté. Appelez train() d'abord."
+
+#: calibration/models/algoritmos.py:187
+msgid "Identificador de modelo no válido: '%s'. Opciones disponibles: %s"
+msgstr "Identifiant de modèle invalide : '%s'. Options disponibles : %s"
+
+#: calibration/models/base.py:106
+msgid "Alerta clinica: Valores fuera del rango de entrenamiento detectados en la caracteristica '%s'."
+msgstr "Alerte clinique : des valeurs hors de la plage d'entraînement ont été détectées dans la caractéristique '%s'."
+
+#: calibration/models/base.py:110
+msgid "Caracteristica '%s' no encontrada en los rangos de entrenamiento base."
+msgstr "Caractéristique '%s' non trouvée dans les plages d'entraînement de base."
+
+#: calibration/models/base.py:129
+msgid "Intento critico de guardar un modelo no inicializado o no entrenado."
+msgstr "Tentative critique d'enregistrer un modèle non initialisé ou non entraîné."
+
+#: calibration/models/base.py:130
+msgid "El modelo no puede ser guardado porque el pipeline de entrenamiento no ha finalizado."
+msgstr "Le modèle ne peut pas être enregistré car le pipeline d'entraînement n'est pas terminé."
+
+#: calibration/models/base.py:132
+msgid "Guardando pipeline completo (modelo, escalador y limites de seguridad) en: %s"
+msgstr "Enregistrement du pipeline complet (modèle, scaler et limites de sécurité) dans : %s"
+
+#: calibration/models/base.py:142
+msgid "Guardado del binario en disco completado exitosamente."
+msgstr "Enregistrement du binaire sur disque effectué avec succès."
+
+#: calibration/data/loader.py:56
+msgid "Conectando a la base de datos PostgreSQL para el test %s..."
+msgstr "Connexion à la base de données PostgreSQL pour le test %s..."
+
+#: calibration/data/loader.py:61
+msgid "No se pudo conectar a la BD, intentando leer desde CSV local como respaldo: %s"
+msgstr "Impossible de se connecter à la BD, tentative de lecture depuis un CSV local en secours : %s"
+
+#: calibration/data/loader.py:64
+msgid "Cargando datos clinicos..."
+msgstr "Chargement des données cliniques..."
+
+#: calibration/data/loader.py:77
+msgid "Fusionando conjuntos de datos por identificador de paciente..."
+msgstr "Fusion des ensembles de données par identifiant de patient..."
+
+#: calibration/data/loader.py:106
+msgid "Preparando particiones de entrenamiento y prueba..."
+msgstr "Préparation des partitions d'entraînement et de test..."
+
+#: calibration/data/loader.py:154
+msgid "Generando particiones de validacion cruzada agrupada..."
+msgstr "Génération des partitions de validation croisée groupée..."
+
+#: calibration/utils/reporting.py:54
+msgid "Calculando metricas de rendimiento para el modelo %s"
+msgstr "Calcul des métriques de performance pour le modèle %s"
+
+#: calibration/utils/reporting.py:65
+msgid "Metricas obtenidas - RMSE: %.4f, R2: %.4f"
+msgstr "Métriques obtenues - RMSE : %.4f, R2 : %.4f"
+
+#: calibration/utils/reporting.py:76
+msgid "Resultados guardados exitosamente en %s"
+msgstr "Résultats enregistrés avec succès dans %s"
+
+#: calibration/utils/reporting.py:93
+msgid "Generando visualizacion interactiva con Plotly para %s"
+msgstr "Génération d'une visualisation interactive avec Plotly pour %s"
+
+#: calibration/utils/reporting.py:101
+msgid "Predicciones"
+msgstr "Prédictions"
+
+#: calibration/utils/reporting.py:112
+msgid "Referencia Ideal"
+msgstr "Référence idéale"
+
+#: calibration/utils/reporting.py:117
+msgid "Calibracion de %s: Digital vs Papel"
+msgstr "Calibration de %s : numérique vs papier"
+
+#: calibration/utils/reporting.py:118
+msgid "Puntuacion Real (Test en Papel)"
+msgstr "Score réel (test papier)"
+
+#: calibration/utils/reporting.py:119
+msgid "Puntuacion Predicha (Test Digital)"
+msgstr "Score prédit (test numérique)"
+
+#: calibration/utils/reporting.py:125
+msgid "Grafico interactivo exportado en %s"
+msgstr "Graphique interactif exporté dans %s"
+

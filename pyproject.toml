@@ -1,0 +1,22 @@
+[project]
+name = "calibration"
+version = "0.1.0"
+description = "Cognitive Test Calibration"
+authors = [
+    {name = "Joquin Ordieres-Mere <j.ordieres@upm.es>"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "xgboost (>=3.2.0,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.3"
+sphinx = "^9.1.0"
+

@@ -1,0 +1,12 @@
+
+xgettext -d messages -o calibration/locales/messages.pot calibration/main.py calibration/models/algoritmos.py calibration/models/base.py calibration/data/loader.py calibration/utils/reporting.py
+
+msginit -i locales/messages.pot -o locales/es/LC_MESSAGES/messages.po -l es
+msginit -i locales/messages.pot -o locales/en/LC_MESSAGES/messages.po -l en
+msginit -i locales/messages.pot -o locales/fr/LC_MESSAGES/messages.po -l fr
+
+# Editar para rellenar los msgstr
+
+msgfmt locales/es/LC_MESSAGES/messages.po -o locales/es/LC_MESSAGES/messages.mo
+msgfmt locales/en/LC_MESSAGES/messages.po -o locales/en/LC_MESSAGES/messages.mo
+msgfmt locales/fr/LC_MESSAGES/messages.po -o locales/fr/LC_MESSAGES/messages.mo
