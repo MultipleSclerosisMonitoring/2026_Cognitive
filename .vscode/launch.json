@@ -10,7 +10,9 @@
                 "--config",
                 "calibration/config.yaml",
                 "--verbose",
-                "3"
+                "3",
+                "--lang",
+                "en"    
             ],
             "console": "integratedTerminal",
             "justMyCode": true,
@@ -35,7 +37,9 @@
                 "--config",
                 "calibration/config.yaml",
                 "--verbose",
-                "2"
+                "2",
+                "--lang",
+                "en"  
             ],
             "console": "integratedTerminal",
             "justMyCode": true,
