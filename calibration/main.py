@@ -5,9 +5,13 @@ import gettext
 import os
 import pandas as pd
 from typing import Any, Dict, List
-from calibracion_cognitiva.models.algoritmos import get_model
-from calibracion_cognitiva.data.loader import DataProcessor
-from calibracion_cognitiva.utils.reporting import ReportGenerator
+from dotenv import load_dotenv
+from calibration.models.algoritmos import get_model
+from calibration.data.loader import DataProcessor
+from calibration.utils.reporting import ReportGenerator
+
+# Load environment variables from .env file
+load_dotenv()
 
 default_lang = os.environ.get('LANG', 'es').split('_')[0]
 temp_translation = gettext.translation('messages', localedir='locales', languages=[default_lang], fallback=True)
@@ -96,8 +100,21 @@ def main() -> None:
     
     # Procesamiento de Datos
     data_config = config.get("data", {})
-    db_uri = data_config.get("db_uri", "postgresql://user:pass@localhost/dbname")
-    excel_path = data_config.get("excel_path", "datos_papel.xlsx")
+    
+    # Build database URI from environment variables (preferred) or config file (fallback)
+    db_host = os.environ.get("DB_HOST", data_config.get("db_host", "localhost"))
+    db_port = os.environ.get("DB_PORT", data_config.get("db_port", "5432"))
+    db_user = os.environ.get("DB_USER", data_config.get("db_user"))
+    db_password = os.environ.get("DB_PASSWORD", data_config.get("db_password"))
+    db_name = os.environ.get("DB_NAME", data_config.get("db_name"))
+    
+    if not all([db_user, db_password, db_name]):
+        logging.critical(_("Credenciales de base de datos incompletas. Configure las variables de entorno DB_USER, DB_PASSWORD y DB_NAME o actualize el archivo config.yaml"))
+        return
+    
+    db_uri = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    
+    excel_path = os.environ.get("EXCEL_DATA_PATH", data_config.get("excel_path", "datos_papel.xlsx"))
     test_type = data_config.get("test_type", "sdmt")
     
     logging.info(_("Procesando extraccion de datos para el test objetivo: %s"), test_type.upper())

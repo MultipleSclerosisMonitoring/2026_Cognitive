@@ -1,5 +1,8 @@
 data:
-  db_uri: "postgresql://lectura:ncorrea#2022@apiivm78.etsii.upm.es/CognitiveSclerosis"
+  # Database credentials are loaded from environment variables
+  # See .env.example for required variables: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+  db_host: "localhost"  # Fallback, overridden by DB_HOST env var
+  db_port: "5432"       # Fallback, overridden by DB_PORT env var
   excel_path: "./data/datos_papel.xlsx"
   test_type: "sdmt"
 models:
