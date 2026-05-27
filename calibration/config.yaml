@@ -56,4 +56,3 @@ models:
 output:
   excel_report: "resultados.xlsx"
   html_plot: "graficos.html"
-language: "en"

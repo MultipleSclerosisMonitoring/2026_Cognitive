@@ -4,18 +4,38 @@ import logging
 import gettext
 import os
 import pandas as pd
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
-from calibration.models.algoritmos import get_model
-from calibration.data.loader import DataProcessor, DataProcessingError
-from calibration.utils.reporting import ReportGenerator
 
 # Load environment variables from .env file
 load_dotenv()
 
-default_lang = os.environ.get('LANG', 'es').split('_')[0]
+default_lang = (os.environ.get("APP_LANG") or os.environ.get("LANG") or "es").split("_")[0]
 temp_translation = gettext.translation('messages', localedir='locales', languages=[default_lang], fallback=True)
 _ = temp_translation.gettext
+
+
+def _normalize_lang(lang_value: Optional[str]) -> str:
+    """Normalizes language values like 'en_US.UTF-8' to 'en'."""
+    if not lang_value:
+        return "es"
+
+    return lang_value.split(".")[0].split("_")[0].strip() or "es"
+
+
+def _configure_language(lang: str) -> gettext.NullTranslations:
+    """Configures process-wide i18n before importing app modules."""
+    normalized_lang = _normalize_lang(lang)
+    os.environ["APP_LANG"] = normalized_lang
+    os.environ["LANGUAGE"] = normalized_lang
+    translation = gettext.translation(
+        "messages",
+        localedir="locales",
+        languages=[normalized_lang],
+        fallback=True,
+    )
+    translation.install()
+    return translation
 
 def setup_logging(verbosity: int) -> None:
     """Configures the application's logging system based on user input.
@@ -44,8 +64,8 @@ def main() -> None:
     The execution flow of this method is divided into the following phases:
     Firstly, it parses command-line arguments using a preliminary i18n setup.
     Secondly, it loads and validates the external configuration from a YAML file.
-    Thirdly, it reconfigures the internationalization (i18n) engine based on the
-    language specified in the configuration file.
+    Thirdly, it configures the internationalization (i18n) engine based on the
+    language specified via CLI or environment variables.
     Fourthly, it extracts and merges data from PostgreSQL databases and Excel files.
     Fifthly, it generates cross-validation splits using a grouped approach to 
     prevent data leakage across different patient records.
@@ -58,6 +78,8 @@ def main() -> None:
         FileNotFoundError: If the specified YAML configuration file does not exist.
         yaml.YAMLError: If the configuration file contains syntax errors.
     """
+    global _
+
     parser = argparse.ArgumentParser(description=_("Sistema de calibracion de tests cognitivos SDMT y TMT para dispositivos moviles."))
     parser.add_argument(
         "--config", 
@@ -72,9 +94,23 @@ def main() -> None:
         default=2, 
         help=_("Nivel de verbosidad (0=Critico, 4=Depuracion maxima). Por defecto es 2 (Avisos).")
     )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        default=None,
+        help=_("Idioma de la interfaz (por ejemplo: es, en, fr). Si no se indica, usa APP_LANG o LANG.")
+    )
     args = parser.parse_args()
 
     setup_logging(args.verbose)
+
+    selected_lang = _normalize_lang(args.lang or os.environ.get("APP_LANG") or os.environ.get("LANG"))
+    translation = _configure_language(selected_lang)
+    _ = translation.gettext
+
+    from calibration.models.algoritmos import get_model
+    from calibration.data.loader import DataProcessor, DataProcessingError
+    from calibration.utils.reporting import ReportGenerator
     
     try:
         with open(args.config, 'r', encoding='utf-8') as file:
@@ -83,14 +119,13 @@ def main() -> None:
         logging.critical(_("Fallo critico al leer el archivo de configuracion YAML: %s"), str(e))
         return
 
-    lang = config.get("language", "es")
-    translation = gettext.translation('messages', localedir='locales', languages=[lang], fallback=True)
-    translation.install()
-    
-    global _ 
-    _ = translation.gettext
+    if "language" in config:
+        logging.warning(
+            _("La clave 'language' en config.yaml esta obsoleta y ya no tiene efecto. Use --lang o APP_LANG en su archivo .env.")
+        )
 
     logging.info(_("Iniciando el proceso de calibracion con configuracion: %s"), args.config)
+    logging.info(_("Idioma activo: %s"), selected_lang)
     
     # Configuración de Rutas de Salida y Generador de Reportes
     output_config = config.get("output", {})

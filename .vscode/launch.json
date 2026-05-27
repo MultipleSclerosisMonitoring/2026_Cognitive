@@ -79,6 +79,8 @@
             "args": [
                 "--config",
                 "calibration/config.yaml",
+                "--lang",
+                "en",
                 "--verbose",
                 "3"
             ],
@@ -92,7 +94,7 @@
                 "group": "debug",
                 "order": 6
             },
-            "description": "Útil para verificar fallback a config.yaml"
+            "description": "Útil para verificar idioma por CLI sin depender de .env"
         }
     ],
     "compounds": [
