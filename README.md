@@ -20,7 +20,7 @@ The reporting framework acts as the operational endpoint, transforming multi-dim
 A complete textual schema that clearly represents the project's directory tree, visualizing the location of data components, models, utilities, and internationalization files.
 
 ```text
-calibracion_cognitiva/
+calibration/
 ├── pyproject.toml
 ├── poetry.lock
 ├── config.yaml
