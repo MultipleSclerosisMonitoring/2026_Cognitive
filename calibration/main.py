@@ -114,7 +114,12 @@ def main() -> None:
     
     db_uri = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     
-    excel_path = os.environ.get("EXCEL_DATA_PATH", data_config.get("excel_path", "datos_papel.xlsx"))
+    excel_path_value = os.environ.get("EXCEL_DATA_PATH") or data_config.get("excel_path") or "datos_papel.xlsx"
+    if not isinstance(excel_path_value, str):
+        logging.critical(_("La ruta del archivo clínico debe ser una cadena válida. Revise EXCEL_DATA_PATH o data.excel_path."))
+        return
+
+    excel_path = excel_path_value
     test_type = data_config.get("test_type", "sdmt")
     column_config = data_config.get("column_mapping", None)
     

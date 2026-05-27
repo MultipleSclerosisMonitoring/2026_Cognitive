@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, inspect
 from sklearn.model_selection import train_test_split, GroupKFold
@@ -415,7 +416,9 @@ class DataProcessor:
                    n_splits, n_groups)
         
         gkf = GroupKFold(n_splits=n_splits)
-        folds = list(gkf.split(X=groups_train.values, y=None, groups=groups_train.values))
+        groups_array = groups_train.to_numpy()
+        dummy_features = np.zeros((len(groups_array), 1))
+        folds = list(gkf.split(X=dummy_features, y=None, groups=groups_array))
         
         logger.debug(_("Estructura de folds:"))
         for fold_idx, (train_idx, val_idx) in enumerate(folds, 1):
