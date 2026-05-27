@@ -1,5 +1,4 @@
 import logging
-import gettext
 from typing import Any, Dict, Optional, List, Tuple
 import numpy as np
 import pandas as pd
@@ -12,10 +11,10 @@ from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 import xgboost as xgb
 from .base import BaseModelCalibrator, PipelineNotTrainedError
 from datetime import datetime
+from calibration.i18n import get_translator
 
 logger = logging.getLogger(__name__)
-translation = gettext.translation('messages', localedir='locales', fallback=True)
-_ = translation.gettext
+_ = get_translator()
 
 class StandardCalibrator(BaseModelCalibrator):
     """Standardized wrapper for managing the lifecycle of predictive estimators.

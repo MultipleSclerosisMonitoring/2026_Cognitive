@@ -1,19 +1,18 @@
 import joblib
 import logging
-import gettext
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, ValidationError
 import pandas as pd
 import numpy as np
 from typing import Dict, Tuple, Any, Optional
 from pathlib import Path
+from calibration.i18n import get_translator
 
 # Configuración del registrador local para este submódulo
 logger = logging.getLogger(__name__)
 
 # Configuración de traducción con soporte de contingencia (fallback)
-translation = gettext.translation('messages', localedir='locales', fallback=True)
-_ = translation.gettext
+_ = get_translator()
 
 
 class ModelMetrics(BaseModel):

@@ -1,41 +1,16 @@
 import argparse
 import yaml
 import logging
-import gettext
 import os
 import pandas as pd
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from dotenv import load_dotenv
+from calibration.i18n import configure_language, get_translator, normalize_lang
 
 # Load environment variables from .env file
 load_dotenv()
 
-default_lang = (os.environ.get("APP_LANG") or os.environ.get("LANG") or "es").split("_")[0]
-temp_translation = gettext.translation('messages', localedir='locales', languages=[default_lang], fallback=True)
-_ = temp_translation.gettext
-
-
-def _normalize_lang(lang_value: Optional[str]) -> str:
-    """Normalizes language values like 'en_US.UTF-8' to 'en'."""
-    if not lang_value:
-        return "es"
-
-    return lang_value.split(".")[0].split("_")[0].strip() or "es"
-
-
-def _configure_language(lang: str) -> gettext.NullTranslations:
-    """Configures process-wide i18n before importing app modules."""
-    normalized_lang = _normalize_lang(lang)
-    os.environ["APP_LANG"] = normalized_lang
-    os.environ["LANGUAGE"] = normalized_lang
-    translation = gettext.translation(
-        "messages",
-        localedir="locales",
-        languages=[normalized_lang],
-        fallback=True,
-    )
-    translation.install()
-    return translation
+_ = get_translator()
 
 def setup_logging(verbosity: int) -> None:
     """Configures the application's logging system based on user input.
@@ -104,8 +79,8 @@ def main() -> None:
 
     setup_logging(args.verbose)
 
-    selected_lang = _normalize_lang(args.lang or os.environ.get("APP_LANG") or os.environ.get("LANG"))
-    translation = _configure_language(selected_lang)
+    selected_lang = normalize_lang(args.lang or os.environ.get("APP_LANG") or os.environ.get("LANG"))
+    translation = configure_language(selected_lang)
     _ = translation.gettext
 
     from calibration.models.algoritmos import get_model

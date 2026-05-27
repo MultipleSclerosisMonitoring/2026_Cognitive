@@ -3,13 +3,12 @@ import pandas as pd
 from sqlalchemy import create_engine, inspect
 from sklearn.model_selection import train_test_split, GroupKFold
 import logging
-import gettext
 from typing import Tuple, Any, Dict, List, Optional
 from pathlib import Path
+from calibration.i18n import get_translator
 
 logger = logging.getLogger(__name__)
-translation = gettext.translation('messages', localedir='locales', fallback=True)
-_ = translation.gettext
+_ = get_translator()
 
 
 class DataProcessingError(Exception):

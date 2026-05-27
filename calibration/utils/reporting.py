@@ -1,5 +1,4 @@
 import logging
-import gettext
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -11,10 +10,10 @@ from sklearn.metrics import (
     mean_absolute_percentage_error, mean_squared_error
 )
 from datetime import datetime
+from calibration.i18n import get_translator
 
 logger = logging.getLogger(__name__)
-translation = gettext.translation('messages', localedir='locales', fallback=True)
-_ = translation.gettext
+_ = get_translator()
 
 
 class ReportGenerator:
