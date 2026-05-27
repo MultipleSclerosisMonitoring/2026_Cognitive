@@ -9,10 +9,12 @@ data:
   # Column configuration per test type
   column_mapping:
     sdmt:
-      target_hints:
-        - "Día 1 SDMT Papel score"
-        - "SDMT Papel"
-        - "sdmt_papel"
+      target_columns:
+        - name: "sdmt_paper_score"
+          hints:
+            - "Día 1 SDMT Papel score"
+            - "SDMT Papel"
+            - "sdmt_papel"
       features_to_drop:
         - "id"
         - "codeid"
@@ -20,22 +22,56 @@ data:
         - "ts_updated"
         - "patient_id"
         - "sset"
+        - "EDSS"
     tmt:
-      target_hints:
-        - "DIA 1 TMT papel"
-        - "TMT papel"
-        - "tmt_papel"
-        - "tiempo"
+      target_columns:
+        - name: "tmt_paper_score_a"
+          group: "score"
+          hints:
+            - "DIA 1 TMT papel A"
+            - "TMT papel A"
+            - "tmt papel a"
+            - "tiempo a"
+        - name: "tmt_paper_score_b"
+          group: "score"
+          hints:
+            - "DIA 1 TMT papel B"
+            - "TMT papel B"
+            - "tmt papel b"
+            - "tiempo b"
+        - name: "tmt_paper_errors_a"
+          group: "errors"
+          hints:
+            - "DIA 1 TMT papel errores A"
+            - "TMT papel errores A"
+            - "errores a"
+        - name: "tmt_paper_errors_b"
+          group: "errors"
+          hints:
+            - "DIA 1 TMT papel errores B"
+            - "TMT papel errores B"
+            - "errores b"
       features_to_drop:
         - "id"
         - "codeid"
         - "ts_created"
         - "ts_updated"
         - "patient_id"
+        - "EDSS"
 models:
   - type: "linear"
+    target_mode: "single_output"
     cv_folds: 3
   - type: "rf"
+    target_mode: "single_output"
+    cv_folds: 3
+    search_strategy: "random"
+    n_iter: 50
+    param_grid:
+      n_estimators: [50, 100]
+      max_depth: [null, 10]
+  - type: "rf"
+    target_mode: "grouped_multi_output"
     cv_folds: 3
     search_strategy: "random"
     n_iter: 50
@@ -43,6 +79,7 @@ models:
       n_estimators: [50, 100]
       max_depth: [null, 10]
   - type: "xgboost"
+    target_mode: "single_output"
     cv_folds: 3
     search_strategy: "grid"
     param_grid:

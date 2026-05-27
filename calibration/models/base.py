@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel, ValidationError
 import pandas as pd
 import numpy as np
-from typing import Dict, Tuple, Any, Optional
+from typing import Dict, Tuple, Any, Optional, List
 from pathlib import Path
 from calibration.i18n import get_translator
 
@@ -75,7 +75,7 @@ class BaseModelCalibrator(ABC):
         self.feature_ranges: Dict[str, Tuple[float, float]] = {}
         self.metadata: Dict[str, Any] = {}
         self.n_features: int = 0
-        self.feature_names: Optional[list] = None
+        self.feature_names: Optional[List[str]] = None
         self._is_trained: bool = False
 
     def _check_trained(self) -> None:
@@ -90,7 +90,7 @@ class BaseModelCalibrator(ABC):
             )
 
     @abstractmethod
-    def train(self, X: pd.DataFrame, y: pd.Series, **kwargs: Any) -> None:
+    def train(self, X: pd.DataFrame, y: pd.Series | pd.DataFrame, **kwargs: Any) -> None:
         """Trains the underlying estimator and prepares the pre-processing pipeline.
 
         This is an abstract method. Any class inheriting from BaseModelCalibrator
@@ -174,7 +174,7 @@ class BaseModelCalibrator(ABC):
         
         return out_of_range_features
 
-    def save(self, filepath: str, include_metadata: bool = True) -> None:
+    def save(self, filepath: str | Path, include_metadata: bool = True) -> None:
         """Serializes and saves the complete model pipeline to disk.
 
         This method exports not just the final mathematical model, but also
@@ -193,10 +193,10 @@ class BaseModelCalibrator(ABC):
         """
         self._check_trained()
         
-        filepath = Path(filepath)
-        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath_path = Path(filepath)
+        filepath_path.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info(_("Guardando pipeline completo (modelo, escalador y limites de seguridad) en: %s"), filepath)
+        logger.info(_("Guardando pipeline completo (modelo, escalador y limites de seguridad) en: %s"), filepath_path)
         
         # Pack all necessary components into a single dictionary for persistence
         pipeline_state = {
@@ -209,14 +209,14 @@ class BaseModelCalibrator(ABC):
         }
         
         try:
-            joblib.dump(pipeline_state, filepath)
+            joblib.dump(pipeline_state, filepath_path)
             logger.info(_("✓ Pipeline guardado exitosamente"))
         except IOError as e:
             logger.error(_("Error al guardar pipeline: %s"), str(e))
             raise
 
     @classmethod
-    def load(cls, filepath: str) -> 'BaseModelCalibrator':
+    def load(cls, filepath: str | Path) -> 'BaseModelCalibrator':
         """Loads a previously trained model pipeline from disk.
 
         Args:
@@ -229,15 +229,15 @@ class BaseModelCalibrator(ABC):
             FileNotFoundError: If file does not exist
             RuntimeError: If pipeline file is corrupted
         """
-        filepath = Path(filepath)
+        filepath_path = Path(filepath)
         
-        if not filepath.exists():
-            raise FileNotFoundError(_("Archivo de modelo no encontrado: %s") % filepath)
+        if not filepath_path.exists():
+            raise FileNotFoundError(_("Archivo de modelo no encontrado: %s") % filepath_path)
         
-        logger.info(_("Cargando pipeline desde: %s"), filepath)
+        logger.info(_("Cargando pipeline desde: %s"), filepath_path)
         
         try:
-            pipeline_state = joblib.load(filepath)
+            pipeline_state = joblib.load(filepath_path)
             logger.info(_("✓ Pipeline cargado exitosamente"))
             return pipeline_state
         except Exception as e:

@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 _ = get_translator()
 
 
+def _to_1d_array(values: pd.Series | Any) -> np.ndarray:
+    """Converts a vector-like input into a flat numpy array."""
+    return np.asarray(values).flatten()
+
+
 class ReportGenerator:
     """Utility class for generating performance reports and interactive visualizations.
 
@@ -74,40 +79,40 @@ class ReportGenerator:
             ValueError: If y_true and y_pred have different lengths
         """
         # Validate inputs
-        y_true = np.asarray(y_true).flatten()
-        y_pred = np.asarray(y_pred).flatten()
+        y_true_array = _to_1d_array(y_true)
+        y_pred_array = _to_1d_array(y_pred)
         
-        if len(y_true) != len(y_pred):
+        if len(y_true_array) != len(y_pred_array):
             raise ValueError(
-                _("Longitud de y_true (%d) y y_pred (%d) no coinciden") % (len(y_true), len(y_pred))
+                _("Longitud de y_true (%d) y y_pred (%d) no coinciden") % (len(y_true_array), len(y_pred_array))
             )
         
-        if len(y_true) < 2:
+        if len(y_true_array) < 2:
             raise ValueError(_("Se requieren al menos 2 muestras para calcular métricas"))
         
         logger.info(_("▶️ Calculando métricas de rendimiento para modelo: %s"), model_name)
         
         # Calculate all metrics
-        rmse = float(root_mean_squared_error(y_true, y_pred))
-        mae = float(mean_absolute_error(y_true, y_pred))
-        mse = float(mean_squared_error(y_true, y_pred))
-        r2 = float(r2_score(y_true, y_pred))
+        rmse = float(root_mean_squared_error(y_true_array, y_pred_array))
+        mae = float(mean_absolute_error(y_true_array, y_pred_array))
+        mse = float(mean_squared_error(y_true_array, y_pred_array))
+        r2 = float(r2_score(y_true_array, y_pred_array))
         
         # Calculate MAPE safely (avoid division by zero)
         try:
-            mape = float(mean_absolute_percentage_error(y_true, y_pred))
+            mape = float(mean_absolute_percentage_error(y_true_array, y_pred_array))
         except Exception:
             mape = np.nan
         
         # Calculate residuals
-        residuals = y_true - y_pred
+        residuals = y_true_array - y_pred_array
         residual_std = float(np.std(residuals))
         residual_mean = float(np.mean(residuals))
         
         metrics = {
             "Model": model_name,
             "Timestamp": datetime.now().isoformat(),
-            "N_Samples": len(y_true),
+            "N_Samples": len(y_true_array),
             "RMSE": rmse,
             "MAE": mae,
             "MSE": mse,
@@ -115,14 +120,14 @@ class ReportGenerator:
             "MAPE": mape,
             "Residual_Mean": residual_mean,
             "Residual_Std": residual_std,
-            "Min_True": float(y_true.min()),
-            "Max_True": float(y_true.max()),
-            "Mean_True": float(y_true.mean()),
-            "Std_True": float(y_true.std()),
-            "Min_Pred": float(y_pred.min()),
-            "Max_Pred": float(y_pred.max()),
-            "Mean_Pred": float(y_pred.mean()),
-            "Std_Pred": float(y_pred.std())
+            "Min_True": float(y_true_array.min()),
+            "Max_True": float(y_true_array.max()),
+            "Mean_True": float(y_true_array.mean()),
+            "Std_True": float(y_true_array.std()),
+            "Min_Pred": float(y_pred_array.min()),
+            "Max_Pred": float(y_pred_array.max()),
+            "Mean_Pred": float(y_pred_array.mean()),
+            "Std_Pred": float(y_pred_array.std())
         }
         
         # Log summary
@@ -130,7 +135,7 @@ class ReportGenerator:
         logger.info(_("  • RMSE: %.4f | MAE: %.4f | R²: %.4f"), rmse, mae, r2)
         logger.info(_("  • Residual (Media±Std): %.4f±%.4f"), residual_mean, residual_std)
         logger.info(_("  • Rango Verdadero: [%.2f, %.2f] | Predicho: [%.2f, %.2f]"), 
-                   y_true.min(), y_true.max(), y_pred.min(), y_pred.max())
+                   y_true_array.min(), y_true_array.max(), y_pred_array.min(), y_pred_array.max())
         
         # Save to Excel
         df_new = pd.DataFrame([metrics])
@@ -176,21 +181,21 @@ class ReportGenerator:
         """
         logger.info(_("▶️ Generando visualización interactiva Plotly para %s"), model_name)
         
-        y_true = np.asarray(y_true).flatten()
-        y_pred = np.asarray(y_pred).flatten()
-        residuals = y_true - y_pred
+        y_true_array = _to_1d_array(y_true)
+        y_pred_array = _to_1d_array(y_pred)
+        residuals = y_true_array - y_pred_array
         
         # Calculate metrics for annotation
-        r2 = r2_score(y_true, y_pred)
-        rmse = root_mean_squared_error(y_true, y_pred)
-        mae = mean_absolute_error(y_true, y_pred)
+        r2 = r2_score(y_true_array, y_pred_array)
+        rmse = root_mean_squared_error(y_true_array, y_pred_array)
+        mae = mean_absolute_error(y_true_array, y_pred_array)
         
         fig = go.Figure()
         
         # Add scatter plot
         fig.add_trace(go.Scatter(
-            x=y_true, 
-            y=y_pred, 
+            x=y_true_array, 
+            y=y_pred_array, 
             mode='markers+text',
             name=_('Predicciones'),
             marker=dict(
@@ -199,14 +204,14 @@ class ReportGenerator:
                 color='rgba(31, 119, 180, 0.8)',
                 line=dict(width=1, color='rgba(31, 119, 180, 1)')
             ),
-            text=[f"({yt:.1f}, {yp:.1f})" for yt, yp in zip(y_true, y_pred)],
+            text=[f"({yt:.1f}, {yp:.1f})" for yt, yp in zip(y_true_array, y_pred_array)],
             textposition="top center",
             hovertemplate="<b>Real: %{x:.2f}</b><br>Predicho: %{y:.2f}<extra></extra>"
         ))
         
         # Add perfect prediction line
-        min_val = min(y_true.min(), y_pred.min())
-        max_val = max(y_true.max(), y_pred.max())
+        min_val = min(y_true_array.min(), y_pred_array.min())
+        max_val = max(y_true_array.max(), y_pred_array.max())
         
         fig.add_trace(go.Scatter(
             x=[min_val, max_val], 
@@ -240,7 +245,7 @@ class ReportGenerator:
             hovermode='closest',
             annotations=[
                 dict(
-                    text=_(f"R² = {r2:.3f}<br>RMSE = {rmse:.3f}<br>MAE = {mae:.3f}<br>N = {len(y_true)}"),
+                    text=_(f"R² = {r2:.3f}<br>RMSE = {rmse:.3f}<br>MAE = {mae:.3f}<br>N = {len(y_true_array)}"),
                     xref="paper", yref="paper",
                     x=0.02, y=0.98,
                     showarrow=False,
@@ -278,9 +283,9 @@ class ReportGenerator:
         """
         logger.info(_("Generando gráfico de residuos para %s"), model_name)
         
-        y_true = np.asarray(y_true).flatten()
-        y_pred = np.asarray(y_pred).flatten()
-        residuals = y_true - y_pred
+        y_true_array = _to_1d_array(y_true)
+        y_pred_array = _to_1d_array(y_pred)
+        residuals = y_true_array - y_pred_array
         
         fig = make_subplots(
             rows=1, cols=2,
@@ -290,7 +295,7 @@ class ReportGenerator:
         # Residuals vs predicted
         fig.add_trace(
             go.Scatter(
-                x=y_pred, y=residuals, mode='markers',
+                x=y_pred_array, y=residuals, mode='markers',
                 name=_('Residuos'),
                 marker=dict(size=6, color='blue', opacity=0.6)
             ),
@@ -298,7 +303,16 @@ class ReportGenerator:
         )
         
         # Add zero line
-        fig.add_hline(y=0, line_dash="dash", line_color="red", row=1, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=[float(y_pred_array.min()), float(y_pred_array.max())],
+                y=[0.0, 0.0],
+                mode='lines',
+                line=dict(dash='dash', color='red'),
+                name=_('Línea base')
+            ),
+            row=1, col=1
+        )
         
         # Histogram of residuals
         fig.add_trace(

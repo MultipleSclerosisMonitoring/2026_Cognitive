@@ -7,6 +7,7 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge
 from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 import xgboost as xgb
 from .base import BaseModelCalibrator, PipelineNotTrainedError
@@ -60,7 +61,7 @@ class StandardCalibrator(BaseModelCalibrator):
     def train(
         self, 
         X: pd.DataFrame, 
-        y: pd.Series, 
+        y: pd.Series | pd.DataFrame, 
         param_grid: Optional[Dict[str, list]] = None, 
         cv_folds: Any = 3, 
         search_strategy: str = "grid", 
@@ -106,6 +107,15 @@ class StandardCalibrator(BaseModelCalibrator):
         # Fit scaler on training data only
         logger.debug(_("Ajustando escalador StandardScaler..."))
         X_scaled = self.scaler.fit_transform(X)
+
+        target_columns: List[str]
+        n_targets: int
+        if isinstance(y, pd.DataFrame):
+            target_columns = y.columns.astype(str).tolist()
+            n_targets = int(y.shape[1])
+        else:
+            target_columns = [str(getattr(y, "name", "target"))]
+            n_targets = 1
         
         # Store training metadata
         self.metadata = {
@@ -113,11 +123,26 @@ class StandardCalibrator(BaseModelCalibrator):
             'n_features': X.shape[1],
             'n_samples': X.shape[0],
             'training_date': datetime.now().isoformat(),
-            'target_mean': float(y.mean()),
-            'target_std': float(y.std()),
-            'target_min': float(y.min()),
-            'target_max': float(y.max())
+            'target_columns': target_columns,
+            'n_targets': n_targets,
         }
+        if isinstance(y, pd.DataFrame):
+            self.metadata['target_summary'] = {
+                column: {
+                    'mean': float(y[column].mean()),
+                    'std': float(y[column].std()),
+                    'min': float(y[column].min()),
+                    'max': float(y[column].max())
+                }
+                for column in y.columns
+            }
+        else:
+            self.metadata.update({
+                'target_mean': float(y.mean()),
+                'target_std': float(y.std()),
+                'target_min': float(y.min()),
+                'target_max': float(y.max())
+            })
         
         logger.debug(_("Metadatos de entrenamiento: %d features, %d samples"), 
                     self.metadata['n_features'], self.metadata['n_samples'])
@@ -138,7 +163,7 @@ class StandardCalibrator(BaseModelCalibrator):
     def _hyperparameter_search(
         self, 
         X_scaled: np.ndarray, 
-        y: pd.Series, 
+        y: pd.Series | pd.DataFrame, 
         param_grid: Dict[str, list], 
         cv_folds: Any, 
         strategy: str, 
@@ -222,6 +247,8 @@ class StandardCalibrator(BaseModelCalibrator):
             ValueError: If input features don't match training features
         """
         self._check_trained()
+        if self.feature_names is None:
+            raise PipelineNotTrainedError(_("No hay nombres de features disponibles. El modelo no está listo para inferencia."))
         
         # Validate feature compatibility
         if list(X.columns) != self.feature_names:
@@ -270,7 +297,7 @@ class StandardCalibrator(BaseModelCalibrator):
             return None
 
 
-def get_model(model_type: str, **kwargs) -> StandardCalibrator:
+def get_model(model_type: str, multi_output: bool = False, **kwargs) -> StandardCalibrator:
     """Implementation of the Factory pattern for dynamic instantiation of regressors.
     
     This pattern decouples the creation of the object from its usage, allowing an 
@@ -307,6 +334,8 @@ def get_model(model_type: str, **kwargs) -> StandardCalibrator:
         )
     
     estimator = models[model_type.lower()]
+    if multi_output and not isinstance(estimator, (LinearRegression, Ridge, RandomForestRegressor)):
+        estimator = MultiOutputRegressor(estimator)
     logger.debug(_("Estimador %s creado exitosamente"), type(estimator).__name__)
     
     return StandardCalibrator(estimator)

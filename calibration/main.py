@@ -152,7 +152,7 @@ def main() -> None:
         return
     
     try:
-        X_train, X_test, y_train, y_test, groups_train = processor.prepare_splits(df_merged, test_type)
+        X_train, X_test, y_train, y_test, groups_train, target_groups = processor.prepare_splits(df_merged, test_type)
     except DataProcessingError as e:
         logging.critical(_("Error en preparación de datos: %s"), str(e))
         return
@@ -168,33 +168,100 @@ def main() -> None:
         search_strategy = model_cfg.get("search_strategy", "grid")
         n_iter = model_cfg.get("n_iter", 10)
         param_grid = model_cfg.get("param_grid", None)
+        target_mode = model_cfg.get("target_mode", "single_output")
         
         logging.info(_("--- [Iteracion %d/%d] Iniciando pipeline para modelo: %s ---"), i, len(models_config), model_type.upper())
-        
-        cv_splits = list(processor.get_cv_folds(groups_train, n_splits=cv_folds_num))
-        
+
         try:
-            calibrador = get_model(model_type)
-            logging.debug(_("Instancia de %s generada correctamente. Iniciando ajuste."), model_type)
-            
-            calibrador.train(
-                X=X_train, 
-                y=y_train, 
-                param_grid=param_grid, 
-                cv_folds=cv_splits, 
-                search_strategy=search_strategy, 
-                n_iter=n_iter
-            )
-            
-            logging.info(_("Entrenamiento finalizado para %s. Obteniendo predicciones ciegas..."), model_type)
-            predicciones = calibrador.predict(X_test)
-            
-            logging.info(_("Generando reportes y metricas clinicas..."))
-            metrics = reporter.evaluate_and_save(y_true=y_test, y_pred=predicciones, model_name=model_type)
-            reporter.generate_scatter_plot(y_true=y_test, y_pred=predicciones, model_name=model_type)
-            reporter.generate_residuals_plot(y_true=y_test, y_pred=predicciones, model_name=model_type)
-            
-            logging.info(_("Modelo %s evaluado con exito. RMSE: %.4f | R2: %.4f"), model_type, metrics["RMSE"], metrics["R2_Score"])
+            if target_mode == "grouped_multi_output":
+                eligible_groups = [(group_name, target_names) for group_name, target_names in target_groups.items() if len(target_names) >= 2]
+                if not eligible_groups:
+                    logging.info(_("No hay grupos multi-output elegibles para este test. Fallback a entrenamiento por target."))
+                for group_name, target_names in eligible_groups:
+                    train_mask = y_train[target_names].notna().all(axis=1)
+                    test_mask = y_test[target_names].notna().all(axis=1)
+                    if train_mask.sum() < 10 or test_mask.sum() < 2:
+                        logging.warning(
+                            _("Grupo %s omitido por falta de muestras completas. Train válidas: %d | Test válidas: %d"),
+                            group_name,
+                            int(train_mask.sum()),
+                            int(test_mask.sum())
+                        )
+                        continue
+
+                    run_name = f"{model_type}_{group_name}_multioutput"
+                    calibrador = get_model(model_type, multi_output=True)
+                    logging.debug(_("Instancia multi-output de %s generada para grupo %s."), model_type, group_name)
+                    group_X_train = X_train.loc[train_mask].reset_index(drop=True)
+                    group_y_train = y_train.loc[train_mask, target_names].reset_index(drop=True)
+                    group_groups_train = groups_train.loc[train_mask].reset_index(drop=True)
+                    group_X_test = X_test.loc[test_mask].reset_index(drop=True)
+                    group_y_test = y_test.loc[test_mask, target_names].reset_index(drop=True)
+                    cv_splits = list(processor.get_cv_folds(group_groups_train, n_splits=cv_folds_num))
+
+                    calibrador.train(
+                        X=group_X_train,
+                        y=group_y_train,
+                        param_grid=param_grid,
+                        cv_folds=cv_splits,
+                        search_strategy=search_strategy,
+                        n_iter=n_iter
+                    )
+
+                    logging.info(_("Entrenamiento finalizado para %s. Obteniendo predicciones ciegas..."), run_name)
+                    predicciones = calibrador.predict(group_X_test)
+                    predicciones_df = pd.DataFrame(predicciones, columns=target_names)
+
+                    for target_name in target_names:
+                        eval_name = f"{run_name}_{target_name}"
+                        metrics = reporter.evaluate_and_save(
+                            y_true=group_y_test[target_name],
+                            y_pred=predicciones_df[target_name],
+                            model_name=eval_name
+                        )
+                        reporter.generate_scatter_plot(y_true=group_y_test[target_name], y_pred=predicciones_df[target_name], model_name=eval_name)
+                        reporter.generate_residuals_plot(y_true=group_y_test[target_name], y_pred=predicciones_df[target_name], model_name=eval_name)
+                        logging.info(_("Modelo %s evaluado con exito. RMSE: %.4f | R2: %.4f"), eval_name, metrics["RMSE"], metrics["R2_Score"])
+            if target_mode != "grouped_multi_output" or not any(len(target_names) >= 2 for target_names in target_groups.values()):
+                for target_name in y_train.columns:
+                    train_mask = y_train[target_name].notna()
+                    test_mask = y_test[target_name].notna()
+                    if train_mask.sum() < 10 or test_mask.sum() < 2:
+                        logging.warning(
+                            _("Target %s omitido por falta de muestras válidas. Train: %d | Test: %d"),
+                            target_name,
+                            int(train_mask.sum()),
+                            int(test_mask.sum())
+                        )
+                        continue
+
+                    run_name = f"{model_type}_{target_name}"
+                    calibrador = get_model(model_type)
+                    logging.debug(_("Instancia de %s generada correctamente para target %s."), model_type, target_name)
+                    target_X_train = X_train.loc[train_mask].reset_index(drop=True)
+                    target_y_train = y_train.loc[train_mask, target_name].reset_index(drop=True)
+                    target_groups_train = groups_train.loc[train_mask].reset_index(drop=True)
+                    target_X_test = X_test.loc[test_mask].reset_index(drop=True)
+                    target_y_test = y_test.loc[test_mask, target_name].reset_index(drop=True)
+                    cv_splits = list(processor.get_cv_folds(target_groups_train, n_splits=cv_folds_num))
+
+                    calibrador.train(
+                        X=target_X_train,
+                        y=target_y_train,
+                        param_grid=param_grid,
+                        cv_folds=cv_splits,
+                        search_strategy=search_strategy,
+                        n_iter=n_iter
+                    )
+
+                    logging.info(_("Entrenamiento finalizado para %s. Obteniendo predicciones ciegas..."), run_name)
+                    predicciones = calibrador.predict(target_X_test)
+
+                    logging.info(_("Generando reportes y metricas clinicas..."))
+                    metrics = reporter.evaluate_and_save(y_true=target_y_test, y_pred=predicciones, model_name=run_name)
+                    reporter.generate_scatter_plot(y_true=target_y_test, y_pred=predicciones, model_name=run_name)
+                    reporter.generate_residuals_plot(y_true=target_y_test, y_pred=predicciones, model_name=run_name)
+                    logging.info(_("Modelo %s evaluado con exito. RMSE: %.4f | R2: %.4f"), run_name, metrics["RMSE"], metrics["R2_Score"])
             
         except ValueError as e:
             logging.error(_("Error de configuracion para el modelo %s: %s"), model_type, str(e))

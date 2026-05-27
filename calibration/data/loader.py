@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pandas import CategoricalDtype
 from sqlalchemy import create_engine, inspect
 from sklearn.model_selection import train_test_split, GroupKFold
 import logging
@@ -61,11 +62,37 @@ class DataProcessor:
         """Returns default column configuration."""
         return {
             'sdmt': {
-                'target_hints': ['Día 1 SDMT Papel score', 'SDMT Papel', 'sdmt_papel'],
+                'target_columns': [
+                    {
+                        'name': 'sdmt_paper_score',
+                        'hints': ['Día 1 SDMT Papel score', 'SDMT Papel', 'sdmt_papel']
+                    }
+                ],
                 'features_to_drop': ['id', 'codeid', 'ts_created', 'ts_updated', 'patient_id', 'sset']
             },
             'tmt': {
-                'target_hints': ['DIA 1 TMT papel', 'TMT papel', 'tmt_papel', 'tiempo'],
+                'target_columns': [
+                    {
+                        'name': 'tmt_paper_score_a',
+                        'group': 'score',
+                        'hints': ['DIA 1 TMT papel A', 'TMT papel A', 'tmt papel a', 'tiempo a']
+                    },
+                    {
+                        'name': 'tmt_paper_score_b',
+                        'group': 'score',
+                        'hints': ['DIA 1 TMT papel B', 'TMT papel B', 'tmt papel b', 'tiempo b']
+                    },
+                    {
+                        'name': 'tmt_paper_errors_a',
+                        'group': 'errors',
+                        'hints': ['DIA 1 TMT papel errores A', 'TMT papel errores A', 'errores a']
+                    },
+                    {
+                        'name': 'tmt_paper_errors_b',
+                        'group': 'errors',
+                        'hints': ['DIA 1 TMT papel errores B', 'TMT papel errores B', 'errores b']
+                    }
+                ],
                 'features_to_drop': ['id', 'codeid', 'ts_created', 'ts_updated', 'patient_id']
             }
         }
@@ -176,12 +203,14 @@ class DataProcessor:
                 self.clinical_skiprows
             )
             df_clinical = pd.read_excel(self.excel_path, skiprows=self.clinical_skiprows)
-            return self._normalize_clinical_columns(df_clinical)
+            df_clinical = self._normalize_clinical_columns(df_clinical)
+            return self._normalize_clinical_dtypes(df_clinical)
         except Exception as e:
             logger.debug(_("Fallback a CSV: %s"), str(e))
             try:
                 df_clinical = pd.read_csv(self.excel_path, skiprows=self.clinical_skiprows)
-                return self._normalize_clinical_columns(df_clinical)
+                df_clinical = self._normalize_clinical_columns(df_clinical)
+                return self._normalize_clinical_dtypes(df_clinical)
             except Exception as csv_error:
                 raise DataProcessingError(
                     _("No se pudo leer datos clínicos ni desde Excel ni desde CSV: %s") % str(csv_error)
@@ -269,6 +298,95 @@ class DataProcessor:
                 reconstructed_groups
             )
             logger.debug(_("Primeras columnas normalizadas: %s"), deduplicated_columns[:15])
+
+        return df_normalized
+
+    @staticmethod
+    def _is_date_like_column(column_name: str) -> bool:
+        """Checks whether a column name likely contains date values."""
+        column_lower = column_name.lower()
+        date_hints = ["fecha", "date", "nacim", "birth", "dob"]
+        return any(hint in column_lower for hint in date_hints)
+
+    @staticmethod
+    def _is_identifier_like_column(column_name: str) -> bool:
+        """Checks whether a column is likely an identifier and should not be coerced."""
+        column_lower = column_name.lower()
+        id_hints = ["id", "codigo", "código", "code", "patient"]
+        return any(hint in column_lower for hint in id_hints)
+
+    @staticmethod
+    def _is_categorical_series(series: pd.Series) -> bool:
+        """Checks whether a pandas Series uses categorical dtype."""
+        return isinstance(series.dtype, CategoricalDtype)
+
+    @staticmethod
+    def _coerce_numeric_series(series: pd.Series) -> pd.Series:
+        """Converts locale-dependent numeric strings into pandas numeric values."""
+        normalized = series.astype("string").str.strip()
+        has_comma = normalized.str.contains(",", na=False)
+        has_dot = normalized.str.contains(".", regex=False, na=False)
+
+        both_separators = has_comma & has_dot
+        normalized = normalized.where(~both_separators, normalized.str.replace(".", "", regex=False))
+        normalized = normalized.where(~has_comma, normalized.str.replace(",", ".", regex=False))
+        return pd.to_numeric(normalized, errors="coerce")
+
+    @classmethod
+    def _normalize_clinical_dtypes(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """Normalizes common Excel clinical types such as dates and numeric strings."""
+        df_normalized = df.copy()
+        converted_dates: List[str] = []
+        converted_numeric: List[str] = []
+        cleaned_strings: List[str] = []
+
+        for column in df_normalized.columns:
+            series = df_normalized[column]
+
+            if pd.api.types.is_datetime64_any_dtype(series) or pd.api.types.is_numeric_dtype(series):
+                continue
+
+            if not (
+                pd.api.types.is_object_dtype(series)
+                or pd.api.types.is_string_dtype(series)
+                or cls._is_categorical_series(series)
+            ):
+                continue
+
+            cleaned = series.astype("string").str.strip()
+            missing_tokens = {"", "nan", "None", "none", "N/A", "n/a"}
+            cleaned = cleaned.mask(cleaned.isin(missing_tokens), pd.NA)
+            df_normalized[column] = cleaned
+            cleaned_strings.append(str(column))
+
+            non_null_count = int(cleaned.notna().sum())
+            if non_null_count == 0:
+                continue
+
+            if cls._is_date_like_column(str(column)):
+                parsed_dates = pd.to_datetime(cleaned, errors="coerce", dayfirst=True)
+                parsed_count = int(parsed_dates.notna().sum())
+                if parsed_count >= max(3, int(non_null_count * 0.5)):
+                    df_normalized[column] = parsed_dates
+                    converted_dates.append(str(column))
+                    continue
+
+            if cls._is_identifier_like_column(str(column)):
+                continue
+
+            numeric_candidate = cls._coerce_numeric_series(cleaned)
+            numeric_count = int(numeric_candidate.notna().sum())
+            if numeric_count >= max(3, int(non_null_count * 0.8)):
+                df_normalized[column] = numeric_candidate
+                converted_numeric.append(str(column))
+
+        if converted_dates:
+            logger.info(_("Columnas clínicas convertidas a fecha: %s"), converted_dates)
+        if converted_numeric:
+            logger.info(_("Columnas clínicas convertidas a numérico: %s"), converted_numeric[:20])
+            if len(converted_numeric) > 20:
+                logger.debug(_("Conversión numérica adicional (%d columnas más)"), len(converted_numeric) - 20)
+        logger.debug(_("Columnas clínicas limpiadas como string: %d"), len(cleaned_strings))
 
         return df_normalized
     
@@ -379,7 +497,12 @@ class DataProcessor:
 
         return df_completed
 
-    def prepare_splits(self, df: pd.DataFrame, test_type: str, test_size: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
+    def prepare_splits(
+        self,
+        df: pd.DataFrame,
+        test_type: str,
+        test_size: float = 0.2
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, Dict[str, List[str]]]:
         """Cleans the dataset and performs the initial train-test partitioning.
 
         This method identifies the appropriate target column depending on the test
@@ -416,17 +539,19 @@ class DataProcessor:
         
         config = self.column_config[test_type_lower]
         
-        # Find target column using multiple hints
-        target_col = self._find_target_column(df, config['target_hints'])
-        logger.info(_("Columna target identificada: %s"), target_col)
+        target_mapping = self._resolve_target_columns(df, config)
+        target_columns = list(target_mapping.keys())
+        source_target_columns = list(target_mapping.values())
+        target_groups = self._build_target_groups(config, target_mapping)
+        logger.info(_("Columnas target identificadas: %s"), target_mapping)
         
-        # Validate target column
+        # Validate target coverage
         initial_rows = len(df)
-        df_clean = df.dropna(subset=[target_col])
+        df_clean = df.dropna(subset=source_target_columns, how='all')
         dropped_rows = initial_rows - len(df_clean)
         
         if dropped_rows > 0:
-            logger.warning(_("Se eliminaron %d filas con valores faltantes en target (%.1f%%)"), 
+            logger.warning(_("Se eliminaron %d filas sin ningún target disponible (%.1f%%)"), 
                           dropped_rows, (dropped_rows/initial_rows)*100)
         
         if len(df_clean) < 10:
@@ -435,21 +560,26 @@ class DataProcessor:
             )
 
         df_clean = self._add_clinical_covariates(df_clean)
+        df_clean = self._encode_low_cardinality_categoricals(
+            df_clean,
+            exclude_columns=source_target_columns + ['patient_id', 'patient_id_base']
+        )
         
-        y = df_clean[target_col].copy()
+        y = df_clean[source_target_columns].copy()
+        y.columns = target_columns
         
         # Validate target values
-        if not pd.api.types.is_numeric_dtype(y):
-            logger.warning(_("Intentando convertir target a numérico..."))
-            y = pd.to_numeric(y, errors='coerce')
-            y = y.dropna()
+        for column in y.columns:
+            if not pd.api.types.is_numeric_dtype(y[column]):
+                logger.warning(_("Intentando convertir target '%s' a numérico..."), column)
+                y[column] = pd.to_numeric(y[column], errors='coerce')
         
-        if (y <= 0).any():
+        if (y <= 0).any().any():
             logger.warning(_("Se detectaron valores no positivos en target. Pueden afectar métricas de evaluación."))
         
         # Extract and clean features
         X = df_clean.select_dtypes(include=['number']).copy()
-        X = X.drop(columns=[target_col], errors='ignore')
+        X = X.drop(columns=source_target_columns, errors='ignore')
         
         # Drop non-predictive columns
         available_columns = X.columns.tolist()
@@ -498,10 +628,20 @@ class DataProcessor:
         
         logger.info(_("Train: %d muestras | Test: %d muestras | Features: %d"), 
                    len(X_train), len(X_test), X_train.shape[1])
-        logger.info(_("Target - Media: %.2f, Std: %.2f, Min: %.2f, Max: %.2f"), 
-                   y_train.mean(), y_train.std(), y_train.min(), y_train.max())
+        for target_name in y_train.columns:
+            valid_target = y_train[target_name].dropna()
+            logger.info(_("Target %s - muestras válidas train: %d"), target_name, len(valid_target))
+            if not valid_target.empty:
+                logger.info(
+                    _("Target %s - Media: %.2f, Std: %.2f, Min: %.2f, Max: %.2f"),
+                    target_name,
+                    valid_target.mean(),
+                    valid_target.std(),
+                    valid_target.min(),
+                    valid_target.max()
+                )
         
-        return X_train, X_test, y_train, y_test, groups_train
+        return X_train, X_test, y_train, y_test, groups_train, target_groups
 
     @staticmethod
     def _find_first_matching_column(df: pd.DataFrame, candidates: List[str]) -> Optional[str]:
@@ -520,6 +660,35 @@ class DataProcessor:
                     return col
 
         return None
+
+    @classmethod
+    def _resolve_target_columns(cls, df: pd.DataFrame, config: Dict[str, Any]) -> Dict[str, str]:
+        """Resolves logical target names to actual dataframe columns."""
+        target_defs = config.get('target_columns')
+        if target_defs:
+            resolved_targets: Dict[str, str] = {}
+            for target_def in target_defs:
+                resolved_targets[target_def['name']] = cls._find_target_column(df, target_def['hints'])
+            return resolved_targets
+
+        target_col = cls._find_target_column(df, config['target_hints'])
+        return {config.get('target_name', 'target'): target_col}
+
+    @staticmethod
+    def _build_target_groups(config: Dict[str, Any], target_mapping: Dict[str, str]) -> Dict[str, List[str]]:
+        """Builds target groups for optional grouped multi-output training."""
+        target_defs = config.get('target_columns')
+        if not target_defs:
+            return {'default': list(target_mapping.keys())}
+
+        groups: Dict[str, List[str]] = {}
+        for target_def in target_defs:
+            group_name = target_def.get('group', 'default')
+            target_name = target_def['name']
+            if target_name in target_mapping:
+                groups.setdefault(group_name, []).append(target_name)
+
+        return groups or {'default': list(target_mapping.keys())}
 
     @classmethod
     def _add_clinical_covariates(cls, df: pd.DataFrame) -> pd.DataFrame:
@@ -604,6 +773,55 @@ class DataProcessor:
                 )
 
         return df_enriched
+
+    @classmethod
+    def _encode_low_cardinality_categoricals(cls, df: pd.DataFrame, exclude_columns: List[str]) -> pd.DataFrame:
+        """Encodes compatible low-cardinality categoricals into numeric dummy columns."""
+        df_encoded = df.copy()
+        encoded_columns: List[str] = []
+
+        for column in df.columns:
+            if column in exclude_columns:
+                continue
+            if cls._is_date_like_column(str(column)) or cls._is_identifier_like_column(str(column)):
+                continue
+            if any(token in str(column).lower() for token in ["sexo", "sex", "gender", "genero"]):
+                continue
+
+            series = df[column]
+            if pd.api.types.is_bool_dtype(series):
+                df_encoded[column] = series.astype(float)
+                encoded_columns.append(str(column))
+                continue
+
+            if not (
+                pd.api.types.is_object_dtype(series)
+                or pd.api.types.is_string_dtype(series)
+                or cls._is_categorical_series(series)
+            ):
+                continue
+
+            non_null = series.dropna()
+            nunique = int(non_null.nunique())
+            if nunique < 2 or nunique > 6:
+                continue
+
+            dummies = pd.get_dummies(non_null.astype("string"), prefix=str(column), dtype=float)
+            if dummies.empty:
+                continue
+
+            dummies = dummies.reindex(df.index, fill_value=0.0)
+            df_encoded = pd.concat([df_encoded, dummies], axis=1)
+            encoded_columns.extend(dummies.columns.astype(str).tolist())
+
+        if encoded_columns:
+            logger.info(
+                _("Columnas categóricas codificadas a dummies: %d nuevas features"),
+                len(encoded_columns)
+            )
+            logger.debug(_("Primeras columnas categóricas codificadas: %s"), encoded_columns[:20])
+
+        return df_encoded
     
     @staticmethod
     def _find_target_column(df: pd.DataFrame, hints: List[str]) -> str:
