@@ -15,8 +15,6 @@ data:
       features_to_drop:
         - "id"
         - "codeid"
-        - "f_nacim"
-        - "fecha"
         - "ts_created"
         - "ts_updated"
         - "patient_id"
@@ -30,13 +28,9 @@ data:
       features_to_drop:
         - "id"
         - "codeid"
-        - "f_nacimiento"
-        - "date_data"
         - "ts_created"
         - "ts_updated"
         - "patient_id"
-        - "time_complete_a"
-        - "time_complete_b"
 models:
   - type: "linear"
     cv_folds: 3

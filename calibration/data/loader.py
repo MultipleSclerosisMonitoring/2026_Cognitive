@@ -53,11 +53,11 @@ class DataProcessor:
         return {
             'sdmt': {
                 'target_hints': ['Día 1 SDMT Papel score', 'SDMT Papel', 'sdmt_papel'],
-                'features_to_drop': ['id', 'codeid', 'f_nacim', 'fecha', 'ts_created', 'ts_updated', 'patient_id', 'sset']
+                'features_to_drop': ['id', 'codeid', 'ts_created', 'ts_updated', 'patient_id', 'sset']
             },
             'tmt': {
                 'target_hints': ['DIA 1 TMT papel', 'TMT papel', 'tmt_papel', 'tiempo'],
-                'features_to_drop': ['id', 'codeid', 'f_nacimiento', 'date_data', 'ts_created', 'ts_updated', 'patient_id', 'time_complete_a', 'time_complete_b']
+                'features_to_drop': ['id', 'codeid', 'ts_created', 'ts_updated', 'patient_id']
             }
         }
 
@@ -272,6 +272,8 @@ class DataProcessor:
             raise DataProcessingError(
                 _("Insuficientes datos después de limpiar. Mínimo 10 muestras requeridas, se obtuvieron %d") % len(df_clean)
             )
+
+        df_clean = self._add_clinical_covariates(df_clean)
         
         y = df_clean[target_col].copy()
         
@@ -339,6 +341,108 @@ class DataProcessor:
                    y_train.mean(), y_train.std(), y_train.min(), y_train.max())
         
         return X_train, X_test, y_train, y_test, groups_train
+
+    @staticmethod
+    def _find_first_matching_column(df: pd.DataFrame, candidates: List[str]) -> Optional[str]:
+        """Finds the first column whose normalized name matches any candidate."""
+        normalized_columns = {col.lower().strip(): col for col in df.columns}
+
+        for candidate in candidates:
+            direct_match = normalized_columns.get(candidate.lower().strip())
+            if direct_match is not None:
+                return direct_match
+
+        for candidate in candidates:
+            candidate_lower = candidate.lower().strip()
+            for col in df.columns:
+                if candidate_lower in col.lower().strip():
+                    return col
+
+        return None
+
+    @classmethod
+    def _add_clinical_covariates(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """Adds clinically relevant derived covariates such as age and sex."""
+        df_enriched = df.copy()
+
+        birth_col = cls._find_first_matching_column(
+            df_enriched,
+            ['f_nacim', 'f_nacimiento', 'fecha_nacimiento', 'birth_date', 'dob']
+        )
+        assessment_col = cls._find_first_matching_column(
+            df_enriched,
+            ['fecha', 'date_data', 'fecha_test', 'assessment_date', 'test_date']
+        )
+
+        logger.info(
+            _("Detección de covariables clínicas - nacimiento: %s | fecha de prueba: %s"),
+            birth_col or _("no detectada"),
+            assessment_col or _("no detectada")
+        )
+
+        if birth_col and assessment_col:
+            birth_dates = pd.to_datetime(df_enriched[birth_col], errors='coerce')
+            assessment_dates = pd.to_datetime(df_enriched[assessment_col], errors='coerce')
+            age_years = (assessment_dates - birth_dates).dt.days / 365.25
+            valid_age = age_years.where((age_years >= 0) & (age_years <= 120))
+
+            if valid_age.notna().any():
+                df_enriched['age_at_test'] = valid_age
+                logger.info(
+                    _("Feature clínica derivada añadida: age_at_test (%d valores válidos, media %.2f, rango %.2f-%.2f)"),
+                    int(valid_age.notna().sum()),
+                    float(valid_age.mean()),
+                    float(valid_age.min()),
+                    float(valid_age.max())
+                )
+            else:
+                logger.warning(
+                    _("No fue posible derivar age_at_test a partir de %s y %s"),
+                    birth_col, assessment_col
+                )
+
+        sex_col = cls._find_first_matching_column(
+            df_enriched,
+            ['sexo', 'sex', 'gender', 'genero']
+        )
+        logger.info(
+            _("Detección de covariables clínicas - sexo/género: %s"),
+            sex_col or _("no detectada")
+        )
+        if sex_col:
+            sex_series = df_enriched[sex_col].astype(str).str.strip().str.lower()
+            sex_map = {
+                'f': 1.0,
+                'female': 1.0,
+                'femenino': 1.0,
+                'mujer': 1.0,
+                'woman': 1.0,
+                'm': 0.0,
+                'male': 0.0,
+                'masculino': 0.0,
+                'hombre': 0.0,
+                'man': 0.0,
+            }
+            sex_encoded = sex_series.map(sex_map)
+            if sex_encoded.notna().any():
+                df_enriched['sex_binary'] = sex_encoded
+                female_count = int((sex_encoded == 1.0).sum())
+                male_count = int((sex_encoded == 0.0).sum())
+                missing_count = int(sex_encoded.isna().sum())
+                logger.info(
+                    _("Feature clínica derivada añadida: sex_binary (%d valores válidos; female=1: %d, male=0: %d, no codificados: %d)"),
+                    int(sex_encoded.notna().sum()),
+                    female_count,
+                    male_count,
+                    missing_count
+                )
+            else:
+                logger.warning(
+                    _("No fue posible codificar la columna de sexo/género detectada: %s"),
+                    sex_col
+                )
+
+        return df_enriched
     
     @staticmethod
     def _find_target_column(df: pd.DataFrame, hints: List[str]) -> str:
