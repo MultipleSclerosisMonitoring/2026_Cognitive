@@ -1,0 +1,121 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "validar-env",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-c",
+                "import os; from pathlib import Path; env_file = Path('.env'); print(f'✓ Archivo .env encontrado') if env_file.exists() else print(f'⚠️  ADVERTENCIA: .env no encontrado. Usando config.yaml como fallback'); exit(0 if env_file.exists() or Path('calibration/config.yaml').exists() else 1)"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": [],
+            "runOptions": {
+                "runOn": "folderOpen"
+            }
+        },
+        {
+            "label": "instalar-dependencias",
+            "type": "shell",
+            "command": "pip",
+            "args": [
+                "install",
+                "-e",
+                "."
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "limpiar-cache",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true; find . -type f -name '*.pyc' -delete 2>/dev/null || true; echo '✓ Cache limpiado'"
+            ],
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "ejecutar-test",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-m",
+                "pytest",
+                "-v",
+                "tests/"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": [
+                "$pytest"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "listar-configuraciones",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-c",
+                "import yaml; from pathlib import Path; config = yaml.safe_load(Path('calibration/config.yaml').read_text()); print('\\n📋 CONFIGURACIÓN CARGADA:\\n'); print(yaml.dump(config, default_flow_style=False))"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "validar-config-yaml",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-c",
+                "import yaml; from pathlib import Path; yaml.safe_load(Path('calibration/config.yaml').read_text()); print('✓ config.yaml es válido')"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "test"
+            }
+        },
+        {
+            "label": "crear-env-desde-ejemplo",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "if [ ! -f .env ]; then cp .env.example .env && echo '✓ Archivo .env creado desde .env.example. Por favor actualiza las credenciales.'; else echo '⚠️  .env ya existe'; fi"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

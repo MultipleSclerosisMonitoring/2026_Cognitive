@@ -1,0 +1,112 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug - Configuración Estándar",
+            "type": "python",
+            "request": "launch",
+            "module": "calibration.main",
+            "args": [
+                "--config",
+                "calibration/config.yaml",
+                "--verbose",
+                "3"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "showReturnValue": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYTHONUNBUFFERED": "1"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "validar-env",
+            "presentation": {
+                "group": "debug",
+                "order": 1
+            }
+        },
+        {
+            "name": "Debug - Warning Level",
+            "type": "python",
+            "request": "launch",
+            "module": "calibration.main",
+            "args": [
+                "--config",
+                "calibration/config.yaml",
+                "--verbose",
+                "2"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYTHONUNBUFFERED": "1"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "presentation": {
+                "group": "debug",
+                "order": 3
+            }
+        },
+        {
+            "name": "Debug - unittest (Pruebas Unitarias)",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "-v",
+                "--tb=short",
+                "tests/"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYTHONUNBUFFERED": "1"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "presentation": {
+                "group": "testing",
+                "order": 1
+            }
+        },
+        {
+            "name": "Debug - Sin Cargar .env (Solo Credenciales en config.yaml)",
+            "type": "python",
+            "request": "launch",
+            "module": "calibration.main",
+            "args": [
+                "--config",
+                "calibration/config.yaml",
+                "--verbose",
+                "3"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYTHONUNBUFFERED": "1"
+            },
+            "presentation": {
+                "group": "debug",
+                "order": 6
+            },
+            "description": "Útil para verificar fallback a config.yaml"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "🎯 Pipeline Completo (Debug + Pruebas)",
+            "configurations": [
+                "🐛 Debug - Configuración Estándar",
+                "🔍 Debug - unittest (Pruebas Unitarias)"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "group": "compound",
+                "order": 1
+            }
+        }
+    ]
+}
