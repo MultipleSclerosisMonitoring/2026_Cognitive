@@ -103,6 +103,7 @@ class DataProcessor:
         # Standardize patient IDs
         df_digital = self._standardize_patient_id(df_digital, 'codeid')
         df_clinical = self._standardize_patient_id_clinical(df_clinical)
+        df_clinical = self._complete_clinical_patient_ids(df_clinical, df_digital)
         
         # Merge datasets
         logger.info(_("Fusionando conjuntos de datos por identificador de paciente..."))
@@ -200,6 +201,7 @@ class DataProcessor:
         
         df = df.copy()
         df['patient_id'] = df[id_column].astype(str).str.strip().str.upper()
+        df['patient_id_base'] = df['patient_id'].map(DataProcessor._extract_patient_id_base)
         return df
     
     @staticmethod
@@ -229,7 +231,54 @@ class DataProcessor:
             id_column = df.columns[0]
         
         df['patient_id'] = df[id_column].astype(str).str.strip().str.upper()
+        df['patient_id_base'] = df['patient_id'].map(DataProcessor._extract_patient_id_base)
         return df
+
+    @staticmethod
+    def _extract_patient_id_base(patient_id: str) -> str:
+        """Extracts the common patient identifier before any CRC suffix."""
+        return patient_id.split('-', 1)[0].strip().upper()
+
+    @staticmethod
+    def _complete_clinical_patient_ids(df_clinical: pd.DataFrame, df_digital: pd.DataFrame) -> pd.DataFrame:
+        """Completes clinical patient IDs using unique digital ID matches by base ID."""
+        df_completed = df_clinical.copy()
+
+        exact_matches = df_completed['patient_id'].isin(df_digital['patient_id'])
+        digital_unique = (
+            df_digital[['patient_id_base', 'patient_id']]
+            .drop_duplicates()
+            .groupby('patient_id_base')['patient_id']
+            .agg(list)
+        )
+        unique_base_map = {
+            base_id: patient_ids[0]
+            for base_id, patient_ids in digital_unique.items()
+            if len(patient_ids) == 1
+        }
+
+        mapped_ids = df_completed['patient_id_base'].map(unique_base_map)
+        can_complete = (~exact_matches) & mapped_ids.notna()
+        df_completed.loc[can_complete, 'patient_id'] = mapped_ids.loc[can_complete]
+
+        ambiguous_bases = sorted(
+            base_id for base_id, patient_ids in digital_unique.items() if len(patient_ids) > 1
+        )
+        if ambiguous_bases:
+            logger.warning(
+                _("Se detectaron %d patient_id_base ambiguos en datos digitales. No se completarán automáticamente."),
+                len(ambiguous_bases)
+            )
+            logger.debug(_("Bases ambiguas detectadas: %s"), ambiguous_bases)
+
+        logger.info(
+            _("Reconstrucción de patient_id clínico: %d coincidencias exactas, %d completadas por base común, %d sin resolver"),
+            int(exact_matches.sum()),
+            int(can_complete.sum()),
+            int((~df_completed['patient_id'].isin(df_digital['patient_id'])).sum())
+        )
+
+        return df_completed
 
     def prepare_splits(self, df: pd.DataFrame, test_type: str, test_size: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
         """Cleans the dataset and performs the initial train-test partitioning.
