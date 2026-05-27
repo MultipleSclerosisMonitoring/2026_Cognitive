@@ -175,15 +175,102 @@ class DataProcessor:
                 self.excel_path,
                 self.clinical_skiprows
             )
-            return pd.read_excel(self.excel_path, skiprows=self.clinical_skiprows)
+            df_clinical = pd.read_excel(self.excel_path, skiprows=self.clinical_skiprows)
+            return self._normalize_clinical_columns(df_clinical)
         except Exception as e:
             logger.debug(_("Fallback a CSV: %s"), str(e))
             try:
-                return pd.read_csv(self.excel_path, skiprows=self.clinical_skiprows)
+                df_clinical = pd.read_csv(self.excel_path, skiprows=self.clinical_skiprows)
+                return self._normalize_clinical_columns(df_clinical)
             except Exception as csv_error:
                 raise DataProcessingError(
                     _("No se pudo leer datos clínicos ni desde Excel ni desde CSV: %s") % str(csv_error)
                 )
+
+    @staticmethod
+    def _is_unnamed_column(column_name: Any) -> bool:
+        """Checks whether a column label is an unnamed placeholder."""
+        return str(column_name).strip().lower().startswith("unnamed:")
+
+    @staticmethod
+    def _looks_like_suffix_tokens(tokens: List[str], expected_count: int) -> bool:
+        """Heuristic to detect compact suffix groups like A/B or fis/Cog/psc."""
+        if len(tokens) < expected_count:
+            return False
+
+        suffix_tokens = tokens[-expected_count:]
+        return all(1 <= len(token) <= 6 for token in suffix_tokens)
+
+    @classmethod
+    def _expand_merged_header(cls, header: str, span: int) -> List[str]:
+        """Expands a merged header across consecutive unnamed columns."""
+        header_clean = " ".join(str(header).strip().split())
+        tokens = header_clean.split()
+
+        if cls._looks_like_suffix_tokens(tokens, span):
+            suffix_tokens = tokens[-span:]
+            base_tokens = tokens[:-span]
+            if base_tokens:
+                base_header = " ".join(base_tokens).rstrip(",;:/-").strip()
+                if base_header:
+                    return [f"{base_header} {suffix}".strip() for suffix in suffix_tokens]
+
+        return [header_clean] + [f"{header_clean} [{idx}]" for idx in range(2, span + 1)]
+
+    @staticmethod
+    def _deduplicate_column_names(columns: List[str]) -> List[str]:
+        """Ensures the final column labels are unique."""
+        seen: Dict[str, int] = {}
+        unique_columns: List[str] = []
+
+        for column in columns:
+            count = seen.get(column, 0)
+            if count == 0:
+                unique_columns.append(column)
+            else:
+                unique_columns.append(f"{column}__{count + 1}")
+            seen[column] = count + 1
+
+        return unique_columns
+
+    @classmethod
+    def _normalize_clinical_columns(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """Rebuilds clinical headers split across unnamed columns after Excel import."""
+        original_columns = [str(col).strip() for col in df.columns]
+        normalized_columns = original_columns.copy()
+        reconstructed_groups = 0
+
+        idx = 0
+        while idx < len(original_columns):
+            current_header = original_columns[idx]
+            if cls._is_unnamed_column(current_header):
+                idx += 1
+                continue
+
+            run_end = idx + 1
+            while run_end < len(original_columns) and cls._is_unnamed_column(original_columns[run_end]):
+                run_end += 1
+
+            span = run_end - idx
+            if span > 1:
+                expanded_headers = cls._expand_merged_header(current_header, span)
+                normalized_columns[idx:run_end] = expanded_headers
+                reconstructed_groups += 1
+
+            idx = run_end
+
+        deduplicated_columns = cls._deduplicate_column_names(normalized_columns)
+        df_normalized = df.copy()
+        df_normalized.columns = deduplicated_columns
+
+        if reconstructed_groups > 0:
+            logger.info(
+                _("Cabeceras clínicas reconstruidas desde columnas Unnamed: %d grupos detectados"),
+                reconstructed_groups
+            )
+            logger.debug(_("Primeras columnas normalizadas: %s"), deduplicated_columns[:15])
+
+        return df_normalized
     
     @staticmethod
     def _standardize_patient_id(df: pd.DataFrame, id_column: str) -> pd.DataFrame:
@@ -261,8 +348,8 @@ class DataProcessor:
         can_complete = (~exact_matches) & mapped_ids.notna()
         df_completed.loc[can_complete, 'patient_id'] = mapped_ids.loc[can_complete]
 
-        ambiguous_bases = sorted(
-            base_id for base_id, patient_ids in digital_unique.items() if len(patient_ids) > 1
+        ambiguous_bases: List[str] = sorted(
+            [str(base_id) for base_id, patient_ids in digital_unique.items() if len(patient_ids) > 1]
         )
         if ambiguous_bases:
             logger.warning(
@@ -277,6 +364,18 @@ class DataProcessor:
             int(can_complete.sum()),
             int((~df_completed['patient_id'].isin(df_digital['patient_id'])).sum())
         )
+
+        unresolved_clinical_ids = sorted(
+            df_completed.loc[
+                ~df_completed['patient_id'].isin(df_digital['patient_id']),
+                'patient_id'
+            ].dropna().astype(str).unique().tolist()
+        )
+        if unresolved_clinical_ids:
+            logger.debug(
+                _("Códigos clínicos sin correspondencia en datos digitales: %s"),
+                unresolved_clinical_ids
+            )
 
         return df_completed
 
