@@ -3,11 +3,11 @@
     "tasks": [
         {
             "label": "validar-env",
-            "type": "shell",
+            "type": "process",
             "command": "python",
             "args": [
                 "-c",
-                "import os; from pathlib import Path; env_file = Path('.env'); print(f'✓ Archivo .env encontrado') if env_file.exists() else print(f'⚠️  ADVERTENCIA: .env no encontrado. Usando config.yaml como fallback'); exit(0 if env_file.exists() or Path('calibration/config.yaml').exists() else 1)"
+                "from pathlib import Path; env_file = Path('.env'); config_file = Path('calibration/config.yaml'); print('Archivo .env encontrado' if env_file.exists() else 'ADVERTENCIA: .env no encontrado. Usando config.yaml como fallback'); raise SystemExit(0 if env_file.exists() or config_file.exists() else 1)"
             ],
             "presentation": {
                 "reveal": "always",
@@ -52,7 +52,7 @@
         },
         {
             "label": "ejecutar-test",
-            "type": "shell",
+            "type": "process",
             "command": "python",
             "args": [
                 "-m",
@@ -74,11 +74,11 @@
         },
         {
             "label": "listar-configuraciones",
-            "type": "shell",
+            "type": "process",
             "command": "python",
             "args": [
                 "-c",
-                "import yaml; from pathlib import Path; config = yaml.safe_load(Path('calibration/config.yaml').read_text()); print('\\n📋 CONFIGURACIÓN CARGADA:\\n'); print(yaml.dump(config, default_flow_style=False))"
+                "import yaml; from pathlib import Path; config = yaml.safe_load(Path('calibration/config.yaml').read_text()); print('\\nCONFIGURACION CARGADA:\\n'); print(yaml.dump(config, default_flow_style=False))"
             ],
             "presentation": {
                 "reveal": "always",
@@ -88,11 +88,11 @@
         },
         {
             "label": "validar-config-yaml",
-            "type": "shell",
+            "type": "process",
             "command": "python",
             "args": [
                 "-c",
-                "import yaml; from pathlib import Path; yaml.safe_load(Path('calibration/config.yaml').read_text()); print('✓ config.yaml es válido')"
+                "import yaml; from pathlib import Path; yaml.safe_load(Path('calibration/config.yaml').read_text()); print('config.yaml es valido')"
             ],
             "presentation": {
                 "reveal": "always",

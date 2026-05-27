@@ -97,10 +97,10 @@
     ],
     "compounds": [
         {
-            "name": "🎯 Pipeline Completo (Debug + Pruebas)",
+            "name": "Pipeline Completo (Debug + Pruebas)",
             "configurations": [
-                "🐛 Debug - Configuración Estándar",
-                "🔍 Debug - unittest (Pruebas Unitarias)"
+                "Debug - Configuración Estándar",
+                "Debug - unittest (Pruebas Unitarias)"
             ],
             "stopAll": true,
             "presentation": {
