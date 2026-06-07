@@ -2,10 +2,11 @@ import numpy as np
 import pandas as pd
 from pandas import CategoricalDtype
 from sqlalchemy import create_engine, inspect
-from sklearn.model_selection import train_test_split, GroupKFold
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 import logging
 from typing import Tuple, Any, Dict, List, Optional
 from pathlib import Path
+import unicodedata
 from calibration.i18n import get_translator
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ class DataProcessor:
         excel_path: str,
         column_config: Optional[Dict] = None,
         clinical_skiprows: int = 2,
+        feature_filter_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initializes the DataProcessor with database and file credentials.
 
@@ -56,7 +58,22 @@ class DataProcessor:
         self.engine = create_engine(self.db_uri)
         self.column_config = column_config or self._default_column_config()
         self.clinical_skiprows = clinical_skiprows
+        self.feature_filter_config = feature_filter_config or self._default_feature_filter_config()
+        self.digital_source_columns: set[str] = set()
+        self.last_feature_audit: Dict[str, Any] = {}
     
+
+    @staticmethod
+    def _default_feature_filter_config() -> Dict[str, Any]:
+        """Returns default feature filtering settings for clinical robustness."""
+        return {
+            'allowed_derived_features': ['age_at_test', 'sex_binary', 'delta_dias_digital_papel'],
+            'allowed_categorical_features': ['clinical_group'],
+            'max_train_missing_rate': 0.35,
+            'min_train_unique_values': 2,
+            'min_train_std': 1e-8,
+        }
+
     @staticmethod
     def _default_column_config() -> Dict:
         """Returns default column configuration."""
@@ -75,22 +92,22 @@ class DataProcessor:
                     {
                         'name': 'tmt_paper_score_a',
                         'group': 'score',
-                        'hints': ['DIA 1 TMT papel A', 'TMT papel A', 'tmt papel a', 'tiempo a']
+                        'hints': ['DIA 1 TMT papel (tiempo) A', 'TMT papel (tiempo) A', 'tmt papel tiempo a']
                     },
                     {
                         'name': 'tmt_paper_score_b',
                         'group': 'score',
-                        'hints': ['DIA 1 TMT papel B', 'TMT papel B', 'tmt papel b', 'tiempo b']
+                        'hints': ['DIA 1 TMT papel (tiempo) B', 'TMT papel (tiempo) B', 'tmt papel tiempo b']
                     },
                     {
                         'name': 'tmt_paper_errors_a',
                         'group': 'errors',
-                        'hints': ['DIA 1 TMT papel errores A', 'TMT papel errores A', 'errores a']
+                        'hints': ['DIA 1 TMT papel (errores) A', 'TMT papel (errores) A', 'tmt papel errores a']
                     },
                     {
                         'name': 'tmt_paper_errors_b',
                         'group': 'errors',
-                        'hints': ['DIA 1 TMT papel errores B', 'TMT papel errores B', 'errores b']
+                        'hints': ['DIA 1 TMT papel (errores) B', 'TMT papel (errores) B', 'tmt papel errores b']
                     }
                 ],
                 'features_to_drop': ['id', 'codeid', 'ts_created', 'ts_updated', 'patient_id']
@@ -121,6 +138,7 @@ class DataProcessor:
         
         # Load digital biomarker data
         df_digital = self._load_digital_data(test_type)
+        self.digital_source_columns = {str(column) for column in df_digital.columns}
         logger.info(_("Datos digitales cargados: %d filas, %d columnas"), df_digital.shape[0], df_digital.shape[1])
         
         # Load clinical reference data
@@ -202,9 +220,30 @@ class DataProcessor:
                 self.excel_path,
                 self.clinical_skiprows
             )
-            df_clinical = pd.read_excel(self.excel_path, skiprows=self.clinical_skiprows)
-            df_clinical = self._normalize_clinical_columns(df_clinical)
-            return self._normalize_clinical_dtypes(df_clinical)
+            workbook = pd.read_excel(
+                self.excel_path,
+                skiprows=self.clinical_skiprows,
+                sheet_name=None
+            )
+            clinical_frames: List[pd.DataFrame] = []
+
+            for sheet_name, df_sheet in workbook.items():
+                df_normalized = self._normalize_clinical_columns(df_sheet)
+                df_normalized = self._normalize_clinical_dtypes(df_normalized)
+                df_normalized["clinical_source_sheet"] = str(sheet_name)
+                clinical_frames.append(df_normalized)
+
+            if not clinical_frames:
+                raise DataProcessingError(_("El libro clínico no contiene hojas legibles"))
+
+            df_clinical = pd.concat(clinical_frames, ignore_index=True, sort=False)
+            df_clinical = df_clinical.dropna(how='all')
+            logger.info(
+                _("Datos clínicos combinados desde %d hoja(s): %s"),
+                len(clinical_frames),
+                list(workbook.keys())
+            )
+            return df_clinical
         except Exception as e:
             logger.debug(_("Fallback a CSV: %s"), str(e))
             try:
@@ -314,6 +353,14 @@ class DataProcessor:
         column_lower = column_name.lower()
         id_hints = ["id", "codigo", "código", "code", "patient"]
         return any(hint in column_lower for hint in id_hints)
+
+    @staticmethod
+    def _normalize_lookup_text(value: Any) -> str:
+        """Normalizes strings for resilient clinical column lookup."""
+        text = str(value).strip().lower()
+        text = unicodedata.normalize("NFKD", text)
+        text = "".join(char for char in text if not unicodedata.combining(char))
+        return " ".join(text.replace("_", " ").split())
 
     @staticmethod
     def _is_categorical_series(series: pd.Series) -> bool:
@@ -562,7 +609,8 @@ class DataProcessor:
         df_clean = self._add_clinical_covariates(df_clean)
         df_clean = self._encode_low_cardinality_categoricals(
             df_clean,
-            exclude_columns=source_target_columns + ['patient_id', 'patient_id_base']
+            exclude_columns=source_target_columns + ['patient_id', 'patient_id_base'],
+            include_columns=self.feature_filter_config.get('allowed_categorical_features', ['clinical_group'])
         )
         
         y = df_clean[source_target_columns].copy()
@@ -577,22 +625,50 @@ class DataProcessor:
         if (y <= 0).any().any():
             logger.warning(_("Se detectaron valores no positivos en target. Pueden afectar métricas de evaluación."))
         
-        # Extract and clean features
-        X = df_clean.select_dtypes(include=['number']).copy()
+        # Extract and clean features prioritizing digital biomarkers plus stable covariates
+        numeric_df = df_clean.select_dtypes(include=['number']).copy()
+        numeric_df.columns = numeric_df.columns.map(str)
+        numeric_df = numeric_df.astype(float)
+
+        allowed_digital_features = {str(column) for column in self.digital_source_columns}
+        allowed_derived_features = set(self.feature_filter_config.get('allowed_derived_features', []))
+        allowed_categorical_features = self.feature_filter_config.get('allowed_categorical_features', ['clinical_group'])
+        allowed_dummy_prefixes = tuple(f"{column}_" for column in allowed_categorical_features)
+
+        selected_feature_names = [
+            column for column in numeric_df.columns
+            if (
+                column in allowed_digital_features
+                or column in allowed_derived_features
+                or column.startswith(allowed_dummy_prefixes)
+            )
+        ]
+
+        X = numeric_df.loc[:, selected_feature_names].copy()
         X = X.drop(columns=source_target_columns, errors='ignore')
-        
-        # Drop non-predictive columns
+
         available_columns = X.columns.tolist()
         cols_to_drop = [col for col in config['features_to_drop'] if col in available_columns]
         X = X.drop(columns=cols_to_drop, errors='ignore')
-        
-        logger.info(_("Features mantenidas: %d de %d columnas numéricas"), X.shape[1], df_clean.select_dtypes(include=['number']).shape[1])
-        
-        # Handle missing values in features
-        missing_before = X.isnull().sum().sum()
-        if missing_before > 0:
-            logger.warning(_("Se detectaron %d valores faltantes en features. Imputando con media."), missing_before)
-            X = X.fillna(X.mean())
+
+        excluded_non_digital = [
+            column for column in numeric_df.columns
+            if column not in selected_feature_names and column not in source_target_columns
+        ]
+        self.last_feature_audit = {
+            'test_type': test_type_lower,
+            'selected_features_initial': X.columns.astype(str).tolist(),
+            'removed_by_reason': {
+                'non_digital_or_non_stable_clinical': excluded_non_digital,
+                'config_features_to_drop': cols_to_drop,
+            },
+        }
+
+        logger.info(
+            _("Features mantenidas: %d de %d columnas numéricas tras filtrar biomarcadores digitales y covariables clínicas estables"),
+            X.shape[1],
+            numeric_df.shape[1]
+        )
         
         # Validate feature data
         if X.shape[1] == 0:
@@ -604,27 +680,94 @@ class DataProcessor:
             X = X.loc[common_idx]
             y = y.loc[common_idx]
         
+        metadata_columns = [
+            column for column in ['patient_id', 'clinical_group', 'age_at_test', 'age_band', 'sex_binary', 'delta_dias_digital_papel']
+            if column in df_clean.columns
+        ]
+        metadata = df_clean.loc[X.index, metadata_columns].copy() if metadata_columns else pd.DataFrame(index=X.index)
+
         # Get patient IDs for grouped CV
         if 'patient_id' not in df_clean.columns:
             raise DataProcessingError(_("Columna 'patient_id' no encontrada. Requerida para validación cruzada agrupada."))
         
         groups = df_clean.loc[X.index, 'patient_id'].copy()
         
-        # Perform stratified train-test split respecting patient groups
+        # Perform hold-out split by patient to avoid leakage across sessions
         logger.info(_("Realizando partición train-test (%.0f%% train, %.0f%% test)..."), (1-test_size)*100, test_size*100)
-        
-        train_idx, test_idx = train_test_split(
-            range(len(X)), 
-            test_size=test_size, 
-            random_state=42,
-            stratify=None  # Could use stratify for balanced splits if target is categorical
-        )
-        
+
+        unique_groups = groups.nunique()
+        if unique_groups < 2:
+            raise DataProcessingError(
+                _("Se requieren al menos 2 pacientes distintos para separar train y test. Detectados: %d") % unique_groups
+            )
+
+        splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=42)
+        train_idx, test_idx = next(splitter.split(X, y=None, groups=groups))
+
         X_train = X.iloc[train_idx].reset_index(drop=True)
         X_test = X.iloc[test_idx].reset_index(drop=True)
         y_train = y.iloc[train_idx].reset_index(drop=True)
         y_test = y.iloc[test_idx].reset_index(drop=True)
         groups_train = groups.iloc[train_idx].reset_index(drop=True)
+        groups_test = groups.iloc[test_idx].reset_index(drop=True)
+        metadata_train = metadata.iloc[train_idx].reset_index(drop=True)
+        metadata_test = metadata.iloc[test_idx].reset_index(drop=True)
+
+        all_nan_train_cols = X_train.columns[X_train.isna().all()].tolist()
+        if all_nan_train_cols:
+            logger.warning(
+                _("Se eliminan %d features sin ningún valor observado en train antes de imputar."),
+                len(all_nan_train_cols)
+            )
+            X_train = X_train.drop(columns=all_nan_train_cols)
+            X_test = X_test.drop(columns=all_nan_train_cols, errors='ignore')
+            self.last_feature_audit['removed_by_reason']['all_nan_in_train'] = all_nan_train_cols
+
+        max_missing_rate = float(self.feature_filter_config.get('max_train_missing_rate', 0.35))
+        high_missing_cols = X_train.columns[X_train.isna().mean() > max_missing_rate].tolist()
+        if high_missing_cols:
+            logger.warning(
+                _("Se eliminan %d features con tasa de nulos en train superior a %.0f%%."),
+                len(high_missing_cols),
+                max_missing_rate * 100.0
+            )
+            X_train = X_train.drop(columns=high_missing_cols)
+            X_test = X_test.drop(columns=high_missing_cols, errors='ignore')
+            self.last_feature_audit['removed_by_reason']['high_missing_rate_in_train'] = high_missing_cols
+
+        min_unique_values = int(self.feature_filter_config.get('min_train_unique_values', 2))
+        low_unique_cols = X_train.columns[X_train.nunique(dropna=True) < min_unique_values].tolist()
+        if low_unique_cols:
+            logger.warning(
+                _("Se eliminan %d features con variación insuficiente en train."),
+                len(low_unique_cols)
+            )
+            X_train = X_train.drop(columns=low_unique_cols)
+            X_test = X_test.drop(columns=low_unique_cols, errors='ignore')
+            self.last_feature_audit['removed_by_reason']['low_unique_values_in_train'] = low_unique_cols
+
+        min_train_std = float(self.feature_filter_config.get('min_train_std', 1e-8))
+        low_variance_cols = X_train.columns[X_train.std(ddof=0).fillna(0.0) <= min_train_std].tolist()
+        if low_variance_cols:
+            logger.warning(
+                _("Se eliminan %d features con desviación estándar casi nula en train."),
+                len(low_variance_cols)
+            )
+            X_train = X_train.drop(columns=low_variance_cols)
+            X_test = X_test.drop(columns=low_variance_cols, errors='ignore')
+            self.last_feature_audit['removed_by_reason']['low_variance_in_train'] = low_variance_cols
+
+        missing_train = int(X_train.isnull().sum().sum())
+        missing_test = int(X_test.isnull().sum().sum())
+        if missing_train or missing_test:
+            logger.warning(
+                _("Se detectaron valores faltantes en features tras el split. Train: %d | Test: %d. Imputando con medias de train."),
+                missing_train,
+                missing_test
+            )
+            train_means = X_train.mean()
+            X_train = X_train.fillna(train_means)
+            X_test = X_test.fillna(train_means)
         
         logger.info(_("Train: %d muestras | Test: %d muestras | Features: %d"), 
                    len(X_train), len(X_test), X_train.shape[1])
@@ -641,22 +784,28 @@ class DataProcessor:
                     valid_target.max()
                 )
         
-        return X_train, X_test, y_train, y_test, groups_train, target_groups
+        self.last_feature_audit['selected_features_final'] = X_train.columns.astype(str).tolist()
+        self.last_feature_audit['n_features_final'] = int(X_train.shape[1])
+
+        return X_train, X_test, y_train, y_test, groups_train, groups_test, metadata_train, metadata_test, target_groups
 
     @staticmethod
     def _find_first_matching_column(df: pd.DataFrame, candidates: List[str]) -> Optional[str]:
         """Finds the first column whose normalized name matches any candidate."""
-        normalized_columns = {col.lower().strip(): col for col in df.columns}
+        normalized_columns = {
+            DataProcessor._normalize_lookup_text(col): col for col in df.columns
+        }
 
         for candidate in candidates:
-            direct_match = normalized_columns.get(candidate.lower().strip())
+            direct_match = normalized_columns.get(DataProcessor._normalize_lookup_text(candidate))
             if direct_match is not None:
                 return direct_match
 
         for candidate in candidates:
-            candidate_lower = candidate.lower().strip()
+            candidate_lower = DataProcessor._normalize_lookup_text(candidate)
             for col in df.columns:
-                if candidate_lower in col.lower().strip():
+                normalized_col = DataProcessor._normalize_lookup_text(col)
+                if candidate_lower in normalized_col:
                     return col
 
         return None
@@ -692,32 +841,59 @@ class DataProcessor:
 
     @classmethod
     def _add_clinical_covariates(cls, df: pd.DataFrame) -> pd.DataFrame:
-        """Adds clinically relevant derived covariates such as age and sex."""
+        """Adds clinically relevant derived covariates such as age, sex and timing."""
         df_enriched = df.copy()
 
         birth_col = cls._find_first_matching_column(
             df_enriched,
-            ['f_nacim', 'f_nacimiento', 'fecha_nacimiento', 'birth_date', 'dob']
+            ['fecha nacimiento', 'f_nacim', 'f_nacimiento', 'fecha_nacimiento', 'birth_date', 'dob']
         )
         assessment_col = cls._find_first_matching_column(
             df_enriched,
-            ['fecha', 'date_data', 'fecha_test', 'assessment_date', 'test_date']
+            ['dia1 monitzacio fecha', 'dia1 monitorizacion fecha', 'dia1 monitorizacio fecha', 'fecha monitorizacion', 'fecha monitoriz.', 'fecha test', 'assessment_date', 'test_date', 'date_data']
+        )
+        digital_date_col = cls._find_first_matching_column(
+            df_enriched,
+            ['ts_created', 'created_at', 'digital_date', 'digital assessment date', 'date_data', 'fecha app']
         )
 
         logger.info(
-            _("Detección de covariables clínicas - nacimiento: %s | fecha de prueba: %s"),
+            _("Detección de covariables clínicas - nacimiento: %s | fecha de prueba clínica: %s | fecha digital: %s"),
             birth_col or _("no detectada"),
-            assessment_col or _("no detectada")
+            assessment_col or _("no detectada"),
+            digital_date_col or _("no detectada")
         )
 
+        if 'clinical_source_sheet' in df_enriched.columns:
+            source_series = df_enriched['clinical_source_sheet'].astype(str).str.strip()
+            normalized_source = source_series.str.lower()
+            clinical_group = pd.Series(pd.NA, index=df_enriched.index, dtype='object')
+            clinical_group = clinical_group.mask(normalized_source.str.contains('control', na=False), 'Controles')
+            clinical_group = clinical_group.mask(normalized_source.str.fullmatch('em', na=False), 'EM')
+            clinical_group = clinical_group.mask(clinical_group.isna(), source_series.where(source_series != 'nan', pd.NA))
+            if clinical_group.notna().any():
+                df_enriched['clinical_group'] = clinical_group
+                logger.info(
+                    _("Feature clínica derivada añadida: clinical_group (%d valores válidos)"),
+                    int(clinical_group.notna().sum())
+                )
+
         if birth_col and assessment_col:
-            birth_dates = pd.to_datetime(df_enriched[birth_col], errors='coerce')
-            assessment_dates = pd.to_datetime(df_enriched[assessment_col], errors='coerce')
+            birth_dates = pd.to_datetime(df_enriched[birth_col], errors='coerce', utc=True).dt.tz_localize(None)
+            assessment_dates = pd.to_datetime(df_enriched[assessment_col], errors='coerce', utc=True).dt.tz_localize(None)
             age_years = (assessment_dates - birth_dates).dt.days / 365.25
             valid_age = age_years.where((age_years >= 0) & (age_years <= 120))
 
             if valid_age.notna().any():
                 df_enriched['age_at_test'] = valid_age
+                age_band = pd.cut(
+                    valid_age,
+                    bins=[0.0, 39.999, 54.999, 120.0],
+                    labels=['<40', '40-54', '55+'],
+                    include_lowest=True
+                )
+                if age_band.notna().any():
+                    df_enriched['age_band'] = age_band.astype('string')
                 logger.info(
                     _("Feature clínica derivada añadida: age_at_test (%d valores válidos, media %.2f, rango %.2f-%.2f)"),
                     int(valid_age.notna().sum()),
@@ -730,6 +906,25 @@ class DataProcessor:
                     _("No fue posible derivar age_at_test a partir de %s y %s"),
                     birth_col, assessment_col
                 )
+
+            if digital_date_col:
+                digital_dates = pd.to_datetime(df_enriched[digital_date_col], errors='coerce', utc=True).dt.tz_localize(None)
+                delta_days = (assessment_dates - digital_dates).dt.total_seconds() / 86400.0
+                valid_delta = delta_days.where(delta_days.abs() <= 365)
+                if valid_delta.notna().any():
+                    df_enriched['delta_dias_digital_papel'] = valid_delta
+                    logger.info(
+                        _("Feature clínica derivada añadida: delta_dias_digital_papel (%d valores válidos, media %.2f, rango %.2f-%.2f)"),
+                        int(valid_delta.notna().sum()),
+                        float(valid_delta.mean()),
+                        float(valid_delta.min()),
+                        float(valid_delta.max())
+                    )
+                else:
+                    logger.warning(
+                        _("No fue posible derivar delta_dias_digital_papel a partir de %s y %s"),
+                        assessment_col, digital_date_col
+                    )
 
         sex_col = cls._find_first_matching_column(
             df_enriched,
@@ -775,13 +970,20 @@ class DataProcessor:
         return df_enriched
 
     @classmethod
-    def _encode_low_cardinality_categoricals(cls, df: pd.DataFrame, exclude_columns: List[str]) -> pd.DataFrame:
+    def _encode_low_cardinality_categoricals(
+        cls,
+        df: pd.DataFrame,
+        exclude_columns: List[str],
+        include_columns: Optional[List[str]] = None,
+    ) -> pd.DataFrame:
         """Encodes compatible low-cardinality categoricals into numeric dummy columns."""
         df_encoded = df.copy()
         encoded_columns: List[str] = []
 
         for column in df.columns:
             if column in exclude_columns:
+                continue
+            if include_columns is not None and column not in include_columns:
                 continue
             if cls._is_date_like_column(str(column)) or cls._is_identifier_like_column(str(column)):
                 continue
@@ -837,25 +1039,26 @@ class DataProcessor:
         Raises:
             DataProcessingError: If no matching column found
         """
-        # First try exact matches
+        normalized_columns = {
+            DataProcessor._normalize_lookup_text(col): col for col in df.columns
+        }
+
+        # First try exact normalized matches
         for hint in hints:
-            if hint in df.columns:
-                logger.debug(_("Target encontrado (coincidencia exacta): %s"), hint)
-                return hint
+            normalized_hint = DataProcessor._normalize_lookup_text(hint)
+            if normalized_hint in normalized_columns:
+                match = normalized_columns[normalized_hint]
+                logger.debug(_("Target encontrado (coincidencia exacta): %s"), match)
+                return match
         
-        # Then try case-insensitive substring matches
+        # Then try normalized substring matches
         for hint in hints:
-            hint_lower = hint.lower().strip()
+            hint_lower = DataProcessor._normalize_lookup_text(hint)
             for col in df.columns:
-                if hint_lower in col.lower().strip():
+                normalized_col = DataProcessor._normalize_lookup_text(col)
+                if hint_lower in normalized_col:
                     logger.debug(_("Target encontrado (coincidencia parcial): %s (hint: %s)"), col, hint)
                     return col
-        
-        # Last resort: look for any column with 'papel' or 'paper'
-        for col in df.columns:
-            if 'papel' in col.lower() or 'paper' in col.lower():
-                logger.debug(_("Target encontrado (contiene 'papel'): %s"), col)
-                return col
         
         raise DataProcessingError(
             _("No se pudo identificar columna target. Pistas buscadas: %s. Columnas disponibles: %s") % 

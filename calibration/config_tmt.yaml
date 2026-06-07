@@ -5,7 +5,7 @@ data:
   db_port: "5432"       # Fallback, overridden by DB_PORT env var
   excel_path: "./data/datos_papel.xlsx"
   clinical_skiprows: 2
-  test_type: "sdmt"
+  test_type: "tmt"
   # Column configuration per test type
   column_mapping:
     sdmt:
@@ -91,5 +91,5 @@ uncertainty:
   bootstrap_confidence: 0.95
   random_state: 42
 output:
-  excel_report: "resultados.xlsx"
-  html_plot: "graficos.html"
+  excel_report: "resultados_tmt.xlsx"
+  html_plot: "graficos_tmt.html"
