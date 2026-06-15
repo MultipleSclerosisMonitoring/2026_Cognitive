@@ -363,20 +363,21 @@ class ReportGenerator:
         df_new = pd.DataFrame([metrics])
 
         output_path = Path(self.output_excel)
+        metrics_sheet = 'Metrics'
         if output_path.exists():
             try:
-                df_existing = pd.read_excel(output_path)
+                df_existing = pd.read_excel(output_path, sheet_name=metrics_sheet)
                 df_final = pd.concat([df_existing, df_new], ignore_index=True)
                 logger.debug(_('Tabla de reportes existente encontrada. Agregando fila...'))
             except Exception:
                 df_final = df_new
 
             with pd.ExcelWriter(output_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-                df_final.to_excel(writer, sheet_name='Sheet1', index=False)
+                df_final.to_excel(writer, sheet_name=metrics_sheet, index=False)
         else:
             logger.debug(_('Creando nueva tabla de reportes'))
             with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-                df_new.to_excel(writer, sheet_name='Sheet1', index=False)
+                df_new.to_excel(writer, sheet_name=metrics_sheet, index=False)
             df_final = df_new
 
         logger.info(_('✓ Resultados guardados en: %s'), self.output_excel)

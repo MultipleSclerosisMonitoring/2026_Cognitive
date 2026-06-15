@@ -85,6 +85,40 @@ def test_prepare_splits_respects_patient_groups_and_train_only_imputation():
     assert "clinical_group" in metadata_test.columns
 
 
+def test_prepare_splits_sdmt_derives_fatigue_features():
+    processor = DataProcessor("sqlite://", "unused.xlsx")
+    processor.digital_source_columns = {
+        "patient_id", "codeid", "numdig1", "numdig2", "numdig3", "numerr1", "numerr2", "numerr3"
+    }
+    df = pd.DataFrame({
+        "patient_id": [f"P{i}" for i in range(1, 11)],
+        "codeid": [f"P{i}" for i in range(1, 11)],
+        "numdig1": [20 + i for i in range(10)],
+        "numdig2": [19 + i for i in range(10)],
+        "numdig3": [18 + i for i in range(10)],
+        "numerr1": [0, 1] * 5,
+        "numerr2": [1, 0] * 5,
+        "numerr3": [1, 1, 0, 0, 1, 1, 0, 0, 1, 1],
+        "Día 1 SDMT Papel score": [40 + i for i in range(10)],
+        "Fecha nacimiento": [
+            "1980-01-01", "1981-01-01", "1982-01-01", "1983-01-01", "1984-01-01",
+            "1985-01-01", "1986-01-01", "1987-01-01", "1988-01-01", "1989-01-01",
+        ],
+        "dia1 monització  fecha": ["2026-01-01"] * 10,
+        "ts_created": ["2025-12-28"] * 10,
+        "Sexo": ["hombre", "mujer"] * 5,
+        "clinical_source_sheet": ["EM", "Controles"] * 5,
+    })
+
+    X_train, X_test, *_ = processor.prepare_splits(df, "sdmt", test_size=0.2)
+
+    assert "sdmt_fatigue_correct_last_over_first" in X_train.columns
+    assert "sdmt_fatigue_accuracy_last_minus_first" in X_train.columns
+    assert "sdmt_fatigue_accuracy_last_over_first" in X_train.columns
+    assert any(column.startswith("sdmt_fatigue_error_") for column in processor.last_feature_audit["sdmt_fatigue_features"])
+    assert len([column for column in X_train.columns if column.startswith("sdmt_fatigue_")]) >= 4
+
+
 def test_prepare_splits_keeps_only_digital_features_and_stable_covariates():
     processor = DataProcessor("sqlite://", "unused.xlsx")
     processor.digital_source_columns = {"patient_id", "codeid", "digital_speed", "digital_errors"}
@@ -114,3 +148,85 @@ def test_prepare_splits_keeps_only_digital_features_and_stable_covariates():
     assert "digital_errors" in X_train.columns
     assert "age_at_test" in X_train.columns
     assert "sex_binary" in X_train.columns
+
+
+def test_prepare_splits_tmt_prioritizes_kinematics_and_removes_global_time():
+    processor = DataProcessor(
+        "sqlite://",
+        "unused.xlsx",
+        feature_filter_config={
+            "allowed_derived_features": ["age_at_test", "sex_binary", "delta_dias_digital_papel"],
+            "allowed_categorical_features": ["clinical_group"],
+            "max_train_missing_rate": 0.35,
+            "min_train_unique_values": 2,
+            "min_train_std": 1e-8,
+            "tmt_use_advanced_kinematics": True,
+            "tmt_transform_strategy": "log1p",
+            "tmt_feature_selection_enabled": False,
+        },
+    )
+    processor.digital_source_columns = {
+        "patient_id",
+        "codeid",
+        "inside circle time",
+        "flight time",
+        "pressure mean",
+        "speed variance before letter select",
+        "finger lift rate",
+        "total completion time",
+    }
+    df = pd.DataFrame({
+        "patient_id": [f"P{i}" for i in range(1, 11)],
+        "codeid": [f"P{i}" for i in range(1, 11)],
+        "inside circle time": [2.0 + i for i in range(10)],
+        "flight time": [1.0 + i * 0.2 for i in range(10)],
+        "pressure mean": [0.4 + i * 0.05 for i in range(10)],
+        "speed variance before letter select": [0.2 + i * 0.03 for i in range(10)],
+        "finger lift rate": [0.5 + i * 0.04 for i in range(10)],
+        "total completion time": [30.0 + i for i in range(10)],
+        "DIA 1 TMT papel (tiempo) A": [20 + i for i in range(10)],
+        "DIA 1 TMT papel (tiempo) B": [45 + i for i in range(10)],
+        "DIA 1 TMT papel (errores) A": [i % 2 for i in range(10)],
+        "DIA 1 TMT papel (errores) B": [(i + 1) % 3 for i in range(10)],
+        "Fecha nacimiento": [
+            "1980-01-01", "1981-01-01", "1982-01-01", "1983-01-01", "1984-01-01",
+            "1985-01-01", "1986-01-01", "1987-01-01", "1988-01-01", "1989-01-01",
+        ],
+        "dia1 monització  fecha": ["2026-01-01"] * 10,
+        "ts_created": ["2025-12-28"] * 10,
+        "Sexo": ["hombre", "mujer"] * 5,
+        "clinical_source_sheet": ["EM", "Controles"] * 5,
+    })
+
+    X_train, X_test, *_ = processor.prepare_splits(df, "tmt", test_size=0.2)
+
+    assert "total completion time" not in X_train.columns
+    assert "age_at_test" not in X_train.columns
+    assert "sex_binary" not in X_train.columns
+    assert "tmt_kinematic_circle_to_flight_ratio" in X_train.columns
+    assert "tmt_kinematic_circle_minus_flight" in X_train.columns
+    assert "tmt_kinematic_pressure_per_lift" in X_train.columns
+    assert processor.last_feature_audit["transformed_columns"]
+
+
+def test_add_clinical_covariates_derives_education_and_impairment_bands():
+    df = pd.DataFrame({
+        "nivel_educ": ["1", "2", "G", "M", "D"],
+        "EDSS": [1.0, 3.0, 5.5, 2.0, 4.8],
+        "Día 3 M-FIS score Cog": [10, 24, 37, 31, 15],
+        "Día 3 MSIS-29 Score Impacto Fís.": [20, 35, 70, 55, 28],
+        "Tiempo  evolución  Io estudio": [2.0, 8.5, 16.0, 0.0, 24.0],
+    })
+
+    enriched = DataProcessor._add_clinical_covariates(df)
+
+    assert enriched["education_band"].astype(str).tolist() == [
+        "Primary", "Secondary", "University", "University", "University"
+    ]
+    assert enriched["disease_duration_years"].tolist() == [2.0, 8.5, 16.0, 0.0, 24.0]
+    assert enriched["disease_duration_band"].astype(str).tolist() == [
+        "Disease_short", "Disease_mid", "Disease_long", "Disease_short", "Disease_long"
+    ]
+    assert "edss_band" in enriched.columns
+    assert "cognitive_burden_band" in enriched.columns
+    assert "physical_impact_band" in enriched.columns

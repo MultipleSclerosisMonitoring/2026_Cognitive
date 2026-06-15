@@ -3,9 +3,11 @@ import pandas as pd
 from pandas import CategoricalDtype
 from sqlalchemy import create_engine, inspect
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
+from sklearn.ensemble import RandomForestRegressor
 import logging
 from typing import Tuple, Any, Dict, List, Optional
 from pathlib import Path
+import re
 import unicodedata
 from calibration.i18n import get_translator
 
@@ -67,12 +69,313 @@ class DataProcessor:
     def _default_feature_filter_config() -> Dict[str, Any]:
         """Returns default feature filtering settings for clinical robustness."""
         return {
-            'allowed_derived_features': ['age_at_test', 'sex_binary', 'delta_dias_digital_papel'],
+            'allowed_derived_features': ['age_at_test', 'sex_binary', 'delta_dias_digital_papel', 'disease_duration_years'],
             'allowed_categorical_features': ['clinical_group'],
             'max_train_missing_rate': 0.35,
             'min_train_unique_values': 2,
             'min_train_std': 1e-8,
+            'tmt_use_advanced_kinematics': True,
+            'tmt_transform_strategy': 'log1p',
+            'tmt_feature_selection_enabled': True,
+            'tmt_include_demographic_covariates': False,
+            'tmt_keep_education_band': True,
+            'tmt_feature_selection_max_features': 24,
+            'tmt_feature_selection_min_features': 8,
+            'tmt_feature_selection_step_ratio': 0.2,
+            'sdmt_fatigue_features_enabled': True,
         }
+
+    @staticmethod
+    def _match_any_pattern(column_name: str, patterns: List[str]) -> bool:
+        """Checks whether a normalized feature name matches any regex pattern."""
+        normalized = DataProcessor._normalize_lookup_text(column_name)
+        return any(re.search(pattern, normalized) for pattern in patterns)
+
+    @staticmethod
+    def _tmt_priority_patterns() -> Dict[str, List[str]]:
+        """Defines heuristic patterns for clinically relevant TMT kinematics."""
+        return {
+            'inside_circle_time': [
+                r'(inside|dwell|stay|within|in)\s*(circle|circulo)',
+                r'(circle|circulo).*(inside|dwell|stay|within|in)',
+                r'average\s*time\s*inside\s*circles',
+            ],
+            'flight_time': [
+                r'(flight|vuelo|hover|air)\s*(time|tiempo)',
+                r'(transition|inter|between).*(time|tiempo)',
+                r'average\s*time\s*between\s*circles',
+            ],
+            'inside_circle_rate': [
+                r'average\s*rate\s*inside\s*circles',
+            ],
+            'between_circle_rate': [
+                r'average\s*rate\s*between\s*circles',
+            ],
+            'pressure_mean': [
+                r'(press|pressure|presion).*(mean|avg|media)',
+                r'(mean|avg|media).*(press|pressure|presion)',
+                r'average\s*total\s*pressure',
+            ],
+            'preselect_letter_time': [
+                r'average\s*time\s*before\s*letters',
+            ],
+            'preselect_number_time': [
+                r'average\s*time\s*before\s*numbers',
+            ],
+            'preselect_letter_rate': [
+                r'average\s*rate\s*before\s*letters',
+            ],
+            'preselect_number_rate': [
+                r'average\s*rate\s*before\s*numbers',
+            ],
+            'finger_lift_rate': [
+                r'(finger|dedo|touch|pen).*(lift|up|levant)',
+                r'(lift|up|levant).*(rate|ratio|freq|frecuencia|count|conteo)',
+                r'(air|hover).*(rate|ratio|freq|frecuencia|count|conteo)',
+                r'average\s*lift',
+                r'number\s*lifts',
+            ],
+            'error_count': [
+                r'number\s*errors',
+            ],
+        }
+
+    @staticmethod
+    def _tmt_global_time_patterns() -> List[str]:
+        """Patterns used to demote overly global TMT summaries."""
+        return [
+            r'(total|overall|global|completion|complete|duracion|duration).*(time|tiempo)',
+            r'(time|tiempo).*(total|overall|global|completion|complete)',
+        ]
+
+    @staticmethod
+    def _tmt_transform_patterns() -> List[str]:
+        """Patterns for temporal and count features that benefit from log transforms."""
+        return [
+            r'(time|tiempo|latency|latencia|duration|duracion|delay|dwell|flight|hover|air)',
+            r'(error|errores|mistake|count|conteo|n_?)',
+        ]
+
+    def _derive_tmt_kinematic_features(self, X: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]:
+        """Builds ratio-style TMT features from the most relevant kinematic signals."""
+        X_enriched = X.copy()
+        patterns = self._tmt_priority_patterns()
+        matched_columns: Dict[str, List[str]] = {}
+
+        for feature_family, regexes in patterns.items():
+            matched_columns[feature_family] = [
+                column for column in X_enriched.columns
+                if self._match_any_pattern(column, regexes)
+            ]
+
+        inside_circle_cols = matched_columns.get('inside_circle_time', [])
+        flight_time_cols = matched_columns.get('flight_time', [])
+        if inside_circle_cols and flight_time_cols:
+            inside_col = inside_circle_cols[0]
+            flight_col = flight_time_cols[0]
+            denominator = X_enriched[flight_col].replace(0.0, np.nan)
+            X_enriched['tmt_kinematic_circle_to_flight_ratio'] = X_enriched[inside_col] / denominator
+            X_enriched['tmt_kinematic_circle_minus_flight'] = X_enriched[inside_col] - X_enriched[flight_col]
+
+        inside_rate_cols = matched_columns.get('inside_circle_rate', [])
+        between_rate_cols = matched_columns.get('between_circle_rate', [])
+        if inside_rate_cols and between_rate_cols:
+            inside_rate_col = inside_rate_cols[0]
+            between_rate_col = between_rate_cols[0]
+            denominator = X_enriched[between_rate_col].replace(0.0, np.nan)
+            X_enriched['tmt_kinematic_inside_to_between_rate_ratio'] = X_enriched[inside_rate_col] / denominator
+            X_enriched['tmt_kinematic_inside_minus_between_rate'] = X_enriched[inside_rate_col] - X_enriched[between_rate_col]
+
+        letter_time_cols = matched_columns.get('preselect_letter_time', [])
+        number_time_cols = matched_columns.get('preselect_number_time', [])
+        if letter_time_cols and number_time_cols:
+            letter_time_col = letter_time_cols[0]
+            number_time_col = number_time_cols[0]
+            denominator = X_enriched[number_time_col].replace(0.0, np.nan)
+            X_enriched['tmt_kinematic_letter_to_number_pretime_ratio'] = X_enriched[letter_time_col] / denominator
+            X_enriched['tmt_kinematic_letter_minus_number_pretime'] = X_enriched[letter_time_col] - X_enriched[number_time_col]
+
+        letter_rate_cols = matched_columns.get('preselect_letter_rate', [])
+        number_rate_cols = matched_columns.get('preselect_number_rate', [])
+        if letter_rate_cols and number_rate_cols:
+            letter_rate_col = letter_rate_cols[0]
+            number_rate_col = number_rate_cols[0]
+            denominator = X_enriched[number_rate_col].replace(0.0, np.nan)
+            X_enriched['tmt_kinematic_letter_to_number_prerate_ratio'] = X_enriched[letter_rate_col] / denominator
+            X_enriched['tmt_kinematic_letter_minus_number_prerate'] = X_enriched[letter_rate_col] - X_enriched[number_rate_col]
+
+        pressure_cols = matched_columns.get('pressure_mean', [])
+        lift_cols = matched_columns.get('finger_lift_rate', [])
+        if pressure_cols and lift_cols:
+            pressure_col = pressure_cols[0]
+            lift_col = lift_cols[0]
+            denominator = X_enriched[lift_col].replace(0.0, np.nan)
+            X_enriched['tmt_kinematic_pressure_per_lift'] = X_enriched[pressure_col] / denominator
+            X_enriched['tmt_kinematic_pressure_lift_interaction'] = X_enriched[pressure_col] * X_enriched[lift_col]
+
+        if lift_cols and flight_time_cols:
+            lift_col = lift_cols[0]
+            flight_col = flight_time_cols[0]
+            denominator = X_enriched[flight_col].replace(0.0, np.nan)
+            X_enriched['tmt_kinematic_lift_per_flight'] = X_enriched[lift_col] / denominator
+
+        error_cols = matched_columns.get('error_count', [])
+        if error_cols and flight_time_cols:
+            error_col = error_cols[0]
+            flight_col = flight_time_cols[0]
+            denominator = X_enriched[flight_col].replace(0.0, np.nan)
+            X_enriched['tmt_kinematic_errors_per_between_time'] = X_enriched[error_col] / denominator
+
+        created_columns = [
+            column for column in X_enriched.columns
+            if column.startswith('tmt_kinematic_')
+        ]
+        matched_columns['derived_features'] = created_columns
+        return X_enriched, matched_columns
+
+    def _derive_sdmt_fatigue_features(self, X: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
+        """Builds within-test fatigability markers from SDMT tercile counters."""
+        X_enriched = X.copy()
+        created_columns: List[str] = []
+
+        digit_cols = [column for column in ['numdig1', 'numdig2', 'numdig3'] if column in X_enriched.columns]
+        error_cols = [column for column in ['numerr1', 'numerr2', 'numerr3'] if column in X_enriched.columns]
+
+        if len(digit_cols) == 3:
+            first, second, third = (X_enriched[column] for column in digit_cols)
+            first_safe = first.replace(0.0, np.nan)
+            total = first + second + third
+            X_enriched['sdmt_fatigue_correct_total_terciles'] = total
+            X_enriched['sdmt_fatigue_correct_last_minus_first'] = third - first
+            X_enriched['sdmt_fatigue_correct_last_over_first'] = third / first_safe
+            X_enriched['sdmt_fatigue_correct_slope'] = (third - first) / 2.0
+            X_enriched['sdmt_fatigue_correct_mid_drop'] = second - first
+            X_enriched['sdmt_fatigue_correct_end_drop'] = third - second
+            created_columns.extend([
+                'sdmt_fatigue_correct_total_terciles',
+                'sdmt_fatigue_correct_last_minus_first',
+                'sdmt_fatigue_correct_last_over_first',
+                'sdmt_fatigue_correct_slope',
+                'sdmt_fatigue_correct_mid_drop',
+                'sdmt_fatigue_correct_end_drop',
+            ])
+
+        if len(error_cols) == 3:
+            first_err, second_err, third_err = (X_enriched[column] for column in error_cols)
+            first_err_safe = first_err.replace(0.0, np.nan)
+            total_err = first_err + second_err + third_err
+            X_enriched['sdmt_fatigue_error_total_terciles'] = total_err
+            X_enriched['sdmt_fatigue_error_last_minus_first'] = third_err - first_err
+            X_enriched['sdmt_fatigue_error_last_over_first'] = third_err / first_err_safe
+            X_enriched['sdmt_fatigue_error_slope'] = (third_err - first_err) / 2.0
+            created_columns.extend([
+                'sdmt_fatigue_error_total_terciles',
+                'sdmt_fatigue_error_last_minus_first',
+                'sdmt_fatigue_error_last_over_first',
+                'sdmt_fatigue_error_slope',
+            ])
+
+        if len(digit_cols) == 3 and len(error_cols) == 3:
+            first_eff_den = (X_enriched[digit_cols[0]] + X_enriched[error_cols[0]]).replace(0.0, np.nan)
+            third_eff_den = (X_enriched[digit_cols[2]] + X_enriched[error_cols[2]]).replace(0.0, np.nan)
+            first_eff = X_enriched[digit_cols[0]] / first_eff_den
+            third_eff = X_enriched[digit_cols[2]] / third_eff_den
+            X_enriched['sdmt_fatigue_accuracy_last_minus_first'] = third_eff - first_eff
+            X_enriched['sdmt_fatigue_accuracy_last_over_first'] = third_eff / first_eff.replace(0.0, np.nan)
+            created_columns.extend([
+                'sdmt_fatigue_accuracy_last_minus_first',
+                'sdmt_fatigue_accuracy_last_over_first',
+            ])
+
+        return X_enriched, created_columns
+
+    def _apply_train_fitted_log_transforms(
+        self,
+        X_train: pd.DataFrame,
+        X_test: pd.DataFrame,
+        candidate_columns: List[str],
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
+        """Applies train-fitted log1p transforms to skewed non-negative predictors."""
+        transformed_columns: List[str] = []
+        for column in candidate_columns:
+            if column not in X_train.columns or column not in X_test.columns:
+                continue
+            train_values = X_train[column]
+            test_values = X_test[column]
+            if train_values.isna().all():
+                continue
+            min_train = float(train_values.min())
+            if min_train < 0.0:
+                continue
+            X_train[column] = np.log1p(train_values)
+            X_test[column] = np.log1p(test_values.clip(lower=0.0))
+            transformed_columns.append(column)
+
+        return X_train, X_test, transformed_columns
+
+    @staticmethod
+    def _build_tmt_target_proxy(y_train: pd.DataFrame) -> pd.Series:
+        """Aggregates the available TMT targets into a stable proxy for feature selection."""
+        standardized_targets = []
+        for column in y_train.columns:
+            series = y_train[column].astype(float)
+            mean = series.mean()
+            std = series.std(ddof=0)
+            if pd.isna(std) or std <= 1e-8:
+                standardized_targets.append(series - mean)
+            else:
+                standardized_targets.append((series - mean) / std)
+
+        proxy = pd.concat(standardized_targets, axis=1).mean(axis=1, skipna=True)
+        return proxy
+
+    def _select_tmt_features_via_rf_rfe(
+        self,
+        X_train: pd.DataFrame,
+        X_test: pd.DataFrame,
+        y_train: pd.DataFrame,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
+        """Runs a lightweight recursive Random Forest elimination for TMT."""
+        if X_train.shape[1] <= 3:
+            return X_train, X_test, X_train.columns.astype(str).tolist()
+
+        selection_target = self._build_tmt_target_proxy(y_train)
+        valid_rows = selection_target.notna()
+        if valid_rows.sum() < 10:
+            return X_train, X_test, X_train.columns.astype(str).tolist()
+
+        max_features = int(self.feature_filter_config.get('tmt_feature_selection_max_features', 24))
+        min_features = int(self.feature_filter_config.get('tmt_feature_selection_min_features', 8))
+        step_ratio = float(self.feature_filter_config.get('tmt_feature_selection_step_ratio', 0.2))
+        current_columns = X_train.columns.astype(str).tolist()
+
+        max_features = max(min_features, min(max_features, len(current_columns)))
+        while len(current_columns) > max_features:
+            estimator = RandomForestRegressor(
+                n_estimators=300,
+                max_depth=8,
+                min_samples_leaf=2,
+                random_state=42,
+                n_jobs=-1,
+            )
+            estimator.fit(
+                X_train.loc[valid_rows, current_columns],
+                selection_target.loc[valid_rows],
+            )
+            importances = pd.Series(estimator.feature_importances_, index=current_columns).sort_values()
+            step = max(1, int(len(current_columns) * step_ratio))
+            removable = max(0, len(current_columns) - min_features)
+            drop_count = min(step, removable)
+            if drop_count <= 0:
+                break
+            to_drop = importances.head(drop_count).index.tolist()
+            current_columns = [column for column in current_columns if column not in to_drop]
+
+        return (
+            X_train.loc[:, current_columns].copy(),
+            X_test.loc[:, current_columns].copy(),
+            current_columns,
+        )
 
     @staticmethod
     def _default_column_config() -> Dict:
@@ -647,9 +950,52 @@ class DataProcessor:
         X = numeric_df.loc[:, selected_feature_names].copy()
         X = X.drop(columns=source_target_columns, errors='ignore')
 
+        if test_type_lower == 'tmt' and not self.feature_filter_config.get('tmt_include_demographic_covariates', False):
+            tmt_covariates_to_drop = []
+            for column in X.columns:
+                if column in allowed_derived_features or column.startswith(allowed_dummy_prefixes):
+                    if self.feature_filter_config.get('tmt_keep_education_band', True) and (column == 'education_band' or column.startswith('education_band_')):
+                        continue
+                    tmt_covariates_to_drop.append(column)
+            X = X.drop(columns=tmt_covariates_to_drop, errors='ignore')
+
+        tmt_priority_matches: Dict[str, List[str]] = {}
+        sdmt_fatigue_features: List[str] = []
+        if test_type_lower == 'tmt':
+            X, tmt_priority_matches = self._derive_tmt_kinematic_features(X)
+        elif test_type_lower == 'sdmt' and self.feature_filter_config.get('sdmt_fatigue_features_enabled', True):
+            X, sdmt_fatigue_features = self._derive_sdmt_fatigue_features(X)
+
         available_columns = X.columns.tolist()
         cols_to_drop = [col for col in config['features_to_drop'] if col in available_columns]
         X = X.drop(columns=cols_to_drop, errors='ignore')
+
+        removed_global_tmt_features: List[str] = []
+        if test_type_lower == 'tmt' and self.feature_filter_config.get('tmt_use_advanced_kinematics', True):
+            priority_columns = sorted({
+                column
+                for columns in tmt_priority_matches.values()
+                for column in columns
+                if column in X.columns
+            })
+            global_time_columns = [
+                column for column in X.columns
+                if self._match_any_pattern(column, self._tmt_global_time_patterns())
+            ]
+            covariate_columns = [
+                column for column in X.columns
+                if column in allowed_derived_features or column.startswith(allowed_dummy_prefixes)
+            ]
+            if priority_columns:
+                keep_columns = sorted(set(priority_columns + covariate_columns))
+                removed_global_tmt_features = [
+                    column for column in X.columns
+                    if column not in keep_columns and column in global_time_columns
+                ]
+                X = X.loc[:, keep_columns].copy()
+            elif global_time_columns:
+                removed_global_tmt_features = global_time_columns
+                X = X.drop(columns=global_time_columns, errors='ignore')
 
         excluded_non_digital = [
             column for column in numeric_df.columns
@@ -661,7 +1007,10 @@ class DataProcessor:
             'removed_by_reason': {
                 'non_digital_or_non_stable_clinical': excluded_non_digital,
                 'config_features_to_drop': cols_to_drop,
+                'tmt_global_time_removed': removed_global_tmt_features,
             },
+            'tmt_priority_matches': tmt_priority_matches,
+            'sdmt_fatigue_features': sdmt_fatigue_features,
         }
 
         logger.info(
@@ -681,7 +1030,20 @@ class DataProcessor:
             y = y.loc[common_idx]
         
         metadata_columns = [
-            column for column in ['patient_id', 'clinical_group', 'age_at_test', 'age_band', 'sex_binary', 'delta_dias_digital_papel']
+            column for column in [
+                'patient_id',
+                'clinical_group',
+                'age_at_test',
+                'age_band',
+                'sex_binary',
+                'delta_dias_digital_papel',
+                'disease_duration_years',
+                'education_band',
+                'edss_band',
+                'cognitive_burden_band',
+                'physical_impact_band',
+                'disease_duration_band',
+            ]
             if column in df_clean.columns
         ]
         metadata = df_clean.loc[X.index, metadata_columns].copy() if metadata_columns else pd.DataFrame(index=X.index)
@@ -768,7 +1130,32 @@ class DataProcessor:
             train_means = X_train.mean()
             X_train = X_train.fillna(train_means)
             X_test = X_test.fillna(train_means)
-        
+
+        if test_type_lower == 'tmt' and self.feature_filter_config.get('tmt_transform_strategy', 'log1p') == 'log1p':
+            transform_candidates = [
+                column for column in X_train.columns
+                if self._match_any_pattern(column, self._tmt_transform_patterns())
+            ]
+            X_train, X_test, transformed_columns = self._apply_train_fitted_log_transforms(
+                X_train,
+                X_test,
+                transform_candidates,
+            )
+            self.last_feature_audit['transformed_columns'] = transformed_columns
+
+        if test_type_lower == 'tmt' and self.feature_filter_config.get('tmt_feature_selection_enabled', True):
+            X_train, X_test, selected_columns = self._select_tmt_features_via_rf_rfe(
+                X_train,
+                X_test,
+                y_train,
+            )
+            removed_after_selection = [
+                column for column in self.last_feature_audit.get('selected_features_initial', [])
+                if column not in selected_columns
+            ]
+            self.last_feature_audit['removed_by_reason']['rf_rfe_elimination'] = removed_after_selection
+            self.last_feature_audit['rf_rfe_selected_features'] = selected_columns
+
         logger.info(_("Train: %d muestras | Test: %d muestras | Features: %d"), 
                    len(X_train), len(X_test), X_train.shape[1])
         for target_name in y_train.columns:
@@ -878,9 +1265,74 @@ class DataProcessor:
                     int(clinical_group.notna().sum())
                 )
 
+        education_col = cls._find_first_matching_column(
+            df_enriched,
+            ['nivel_educ', 'educa', 'education_level', 'education', 'nivel estudios', 'estudios']
+        )
+        if education_col:
+            education_series = df_enriched[education_col].astype(str).str.strip().str.upper()
+            education_map = {
+                '1': 'Primary',
+                'PRIMARIA': 'Primary',
+                'PRIMARY': 'Primary',
+                '2': 'Secondary',
+                'SECUNDARIA': 'Secondary',
+                'SECONDARY': 'Secondary',
+                'BACHILLERATO': 'Secondary',
+                'G': 'University',
+                'GRADO': 'University',
+                'UNIVERSITARIO': 'University',
+                'UNIVERSIDAD': 'University',
+                'M': 'University',
+                'MASTER': 'University',
+                'D': 'University',
+                'DOCTORADO': 'University',
+                'PHD': 'University',
+            }
+            education_band = education_series.map(education_map)
+            if education_band.notna().any():
+                df_enriched['education_band'] = pd.Series(education_band, index=df_enriched.index, dtype='string')
+
+        assessment_dates = None
+        if assessment_col:
+            assessment_dates = pd.to_datetime(df_enriched[assessment_col], errors='coerce', utc=True).dt.tz_localize(None)
+
+        duration_col = cls._find_first_matching_column(
+            df_enriched,
+            [
+                'tiempo evolucion io estudio',
+                'tiempo evolución io estudio',
+                'tiempo evolucion',
+                'tiempo evolución',
+                'disease duration',
+                'years with disease',
+                'anos evolucion',
+                'años evolucion',
+            ]
+        )
+        if duration_col:
+            duration_values = pd.to_numeric(df_enriched[duration_col], errors='coerce')
+            valid_duration = duration_values.where((duration_values >= 0.0) & (duration_values <= 80.0))
+            if valid_duration.notna().any():
+                df_enriched['disease_duration_years'] = valid_duration
+                duration_band = pd.cut(
+                    valid_duration,
+                    bins=[-0.001, 5.0, 15.0, 80.0],
+                    labels=['Disease_short', 'Disease_mid', 'Disease_long'],
+                    include_lowest=True,
+                )
+                if duration_band.notna().any():
+                    df_enriched['disease_duration_band'] = duration_band.astype('string')
+                logger.info(
+                    _("Feature clínica derivada añadida: disease_duration_years (%d valores válidos, media %.2f, rango %.2f-%.2f)"),
+                    int(valid_duration.notna().sum()),
+                    float(valid_duration.mean()),
+                    float(valid_duration.min()),
+                    float(valid_duration.max())
+                )
+
         if birth_col and assessment_col:
             birth_dates = pd.to_datetime(df_enriched[birth_col], errors='coerce', utc=True).dt.tz_localize(None)
-            assessment_dates = pd.to_datetime(df_enriched[assessment_col], errors='coerce', utc=True).dt.tz_localize(None)
             age_years = (assessment_dates - birth_dates).dt.days / 365.25
             valid_age = age_years.where((age_years >= 0) & (age_years <= 120))
 
@@ -966,6 +1418,42 @@ class DataProcessor:
                     _("No fue posible codificar la columna de sexo/género detectada: %s"),
                     sex_col
                 )
+
+        edss_col = cls._find_first_matching_column(df_enriched, ['edss'])
+        if edss_col:
+            edss_values = pd.to_numeric(df_enriched[edss_col], errors='coerce')
+            edss_band = pd.cut(
+                edss_values,
+                bins=[-0.001, 2.5, 4.5, 10.0],
+                labels=['EDSS_mild', 'EDSS_moderate', 'EDSS_advanced'],
+                include_lowest=True,
+            )
+            if edss_band.notna().any():
+                df_enriched['edss_band'] = edss_band.astype('string')
+
+        mfis_cog_col = cls._find_first_matching_column(df_enriched, ['m-fis score cog', 'mfis score cog', 'cogn'])
+        if mfis_cog_col:
+            mfis_cog_values = pd.to_numeric(df_enriched[mfis_cog_col], errors='coerce')
+            cognitive_band = pd.cut(
+                mfis_cog_values,
+                bins=[-0.001, 17.0, 30.0, 60.0],
+                labels=['Cog_low', 'Cog_moderate', 'Cog_high'],
+                include_lowest=True,
+            )
+            if cognitive_band.notna().any():
+                df_enriched['cognitive_burden_band'] = cognitive_band.astype('string')
+
+        msis_phys_col = cls._find_first_matching_column(df_enriched, ['msis-29 score impacto fis', 'msis 29 score impacto fis', 'impacto fis'])
+        if msis_phys_col:
+            msis_phys_values = pd.to_numeric(df_enriched[msis_phys_col], errors='coerce')
+            physical_band = pd.cut(
+                msis_phys_values,
+                bins=[-0.001, 29.0, 50.0, 100.0],
+                labels=['Phys_low', 'Phys_moderate', 'Phys_high'],
+                include_lowest=True,
+            )
+            if physical_band.notna().any():
+                df_enriched['physical_impact_band'] = physical_band.astype('string')
 
         return df_enriched
 

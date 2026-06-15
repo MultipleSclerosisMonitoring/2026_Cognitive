@@ -239,6 +239,184 @@ def _fit_predict_with_optional_conformal(
     return test_predictions, lower_bounds, upper_bounds
 
 
+def _fit_predict_with_optional_stratification(
+    processor: Any,
+    model_type: str,
+    multi_output: bool,
+    X_train: pd.DataFrame,
+    y_train: pd.Series | pd.DataFrame,
+    groups_train: pd.Series,
+    metadata_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    metadata_test: pd.DataFrame,
+    cv_folds_num: int,
+    param_grid: Optional[Dict[str, List[Any]]],
+    search_strategy: str,
+    n_iter: int,
+    uncertainty_cfg: Dict[str, Any],
+    stratify_by: Optional[str] = None,
+    min_train_samples_per_stratum: int = 10,
+    min_unique_groups_per_stratum: int = 2,
+) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+    """Routes calibration through subgroup-specific models with a global fallback."""
+    if not stratify_by:
+        return _fit_predict_with_optional_conformal(
+            processor=processor,
+            model_type=model_type,
+            multi_output=multi_output,
+            X_train=X_train,
+            y_train=y_train,
+            groups_train=groups_train,
+            X_test=X_test,
+            cv_folds_num=cv_folds_num,
+            param_grid=param_grid,
+            search_strategy=search_strategy,
+            n_iter=n_iter,
+            uncertainty_cfg=uncertainty_cfg,
+        )
+
+    if stratify_by not in metadata_train.columns or stratify_by not in metadata_test.columns:
+        logging.warning(_("No se encontró la columna de estratificación '%s'. Se usará el modelo global."), stratify_by)
+        return _fit_predict_with_optional_conformal(
+            processor=processor,
+            model_type=model_type,
+            multi_output=multi_output,
+            X_train=X_train,
+            y_train=y_train,
+            groups_train=groups_train,
+            X_test=X_test,
+            cv_folds_num=cv_folds_num,
+            param_grid=param_grid,
+            search_strategy=search_strategy,
+            n_iter=n_iter,
+            uncertainty_cfg=uncertainty_cfg,
+        )
+
+    train_strata = metadata_train[stratify_by].astype('string').reset_index(drop=True)
+    test_strata = metadata_test[stratify_by].astype('string').reset_index(drop=True)
+    if train_strata.notna().sum() == 0 or test_strata.notna().sum() == 0:
+        logging.warning(_("La estratificación '%s' no contiene valores suficientes. Se usará el modelo global."), stratify_by)
+        return _fit_predict_with_optional_conformal(
+            processor=processor,
+            model_type=model_type,
+            multi_output=multi_output,
+            X_train=X_train,
+            y_train=y_train,
+            groups_train=groups_train,
+            X_test=X_test,
+            cv_folds_num=cv_folds_num,
+            param_grid=param_grid,
+            search_strategy=search_strategy,
+            n_iter=n_iter,
+            uncertainty_cfg=uncertainty_cfg,
+        )
+
+    subgroup_results: List[Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]] = []
+    fallback_positions: List[int] = []
+
+    for subgroup in pd.unique(test_strata.dropna()):
+        subgroup_train_mask = train_strata.eq(subgroup)
+        subgroup_test_mask = test_strata.eq(subgroup)
+        subgroup_positions = np.flatnonzero(subgroup_test_mask.to_numpy())
+        subgroup_train_n = int(subgroup_train_mask.sum())
+        subgroup_group_count = int(groups_train.loc[subgroup_train_mask].nunique()) if subgroup_train_n else 0
+
+        if subgroup_positions.size == 0:
+            continue
+
+        if subgroup_train_n < min_train_samples_per_stratum or subgroup_group_count < min_unique_groups_per_stratum:
+            logging.info(
+                _(
+                    "Subgrupo %s en '%s' se servirá con fallback global. Train=%d | Pacientes=%d"
+                ),
+                subgroup,
+                stratify_by,
+                subgroup_train_n,
+                subgroup_group_count,
+            )
+            fallback_positions.extend(subgroup_positions.tolist())
+            continue
+
+        predictions, interval_low, interval_high = _fit_predict_with_optional_conformal(
+            processor=processor,
+            model_type=model_type,
+            multi_output=multi_output,
+            X_train=X_train.loc[subgroup_train_mask].reset_index(drop=True),
+            y_train=y_train.loc[subgroup_train_mask].reset_index(drop=True),
+            groups_train=groups_train.loc[subgroup_train_mask].reset_index(drop=True),
+            X_test=X_test.loc[subgroup_test_mask].reset_index(drop=True),
+            cv_folds_num=cv_folds_num,
+            param_grid=param_grid,
+            search_strategy=search_strategy,
+            n_iter=n_iter,
+            uncertainty_cfg=uncertainty_cfg,
+        )
+        subgroup_results.append((subgroup_positions, np.asarray(predictions, dtype=float), interval_low, interval_high))
+
+    missing_positions = np.flatnonzero(test_strata.isna().to_numpy())
+    if missing_positions.size:
+        fallback_positions.extend(missing_positions.tolist())
+
+    if fallback_positions:
+        fallback_positions = sorted(set(fallback_positions))
+        predictions, interval_low, interval_high = _fit_predict_with_optional_conformal(
+            processor=processor,
+            model_type=model_type,
+            multi_output=multi_output,
+            X_train=X_train.reset_index(drop=True),
+            y_train=y_train.reset_index(drop=True),
+            groups_train=groups_train.reset_index(drop=True),
+            X_test=X_test.iloc[fallback_positions].reset_index(drop=True),
+            cv_folds_num=cv_folds_num,
+            param_grid=param_grid,
+            search_strategy=search_strategy,
+            n_iter=n_iter,
+            uncertainty_cfg=uncertainty_cfg,
+        )
+        subgroup_results.append((np.asarray(fallback_positions, dtype=int), np.asarray(predictions, dtype=float), interval_low, interval_high))
+
+    if not subgroup_results:
+        return _fit_predict_with_optional_conformal(
+            processor=processor,
+            model_type=model_type,
+            multi_output=multi_output,
+            X_train=X_train,
+            y_train=y_train,
+            groups_train=groups_train,
+            X_test=X_test,
+            cv_folds_num=cv_folds_num,
+            param_grid=param_grid,
+            search_strategy=search_strategy,
+            n_iter=n_iter,
+            uncertainty_cfg=uncertainty_cfg,
+        )
+
+    first_predictions = np.asarray(subgroup_results[0][1], dtype=float)
+    predictions_shape = (len(X_test),) if first_predictions.ndim == 1 else (len(X_test), first_predictions.shape[1])
+    combined_predictions = np.full(predictions_shape, np.nan, dtype=float)
+
+    intervals_available = all(low is not None and high is not None for _, _, low, high in subgroup_results)
+    combined_low = np.full(predictions_shape, np.nan, dtype=float) if intervals_available else None
+    combined_high = np.full(predictions_shape, np.nan, dtype=float) if intervals_available else None
+
+    for positions, predictions, interval_low, interval_high in subgroup_results:
+        combined_predictions[positions] = predictions
+        if intervals_available and combined_low is not None and combined_high is not None:
+            combined_low[positions] = np.asarray(interval_low, dtype=float)
+            combined_high[positions] = np.asarray(interval_high, dtype=float)
+
+    if np.isnan(combined_predictions).any():
+        raise ValueError(_("La estratificación produjo predicciones incompletas. Revise la cobertura de subgrupos."))
+
+    if combined_predictions.ndim == 2 and combined_predictions.shape[1] == 1:
+        combined_predictions = combined_predictions.ravel()
+        if combined_low is not None and combined_high is not None:
+            combined_low = combined_low.ravel()
+            combined_high = combined_high.ravel()
+
+    return combined_predictions, combined_low, combined_high
+
+
 def main() -> None:
     """Main entry point for orchestrating the clinical calibration pipeline."""
     global _
@@ -373,6 +551,9 @@ def main() -> None:
         n_iter = model_cfg.get("n_iter", 10)
         param_grid = model_cfg.get("param_grid", None)
         target_mode = model_cfg.get("target_mode", "single_output")
+        stratify_by = model_cfg.get("stratify_by")
+        min_train_samples_per_stratum = int(model_cfg.get("min_train_samples_per_stratum", 10))
+        min_unique_groups_per_stratum = int(model_cfg.get("min_unique_groups_per_stratum", 2))
 
         logging.info(_("--- [Iteracion %d/%d] Iniciando pipeline para modelo: %s ---"), i, len(models_config), model_type.upper())
 
@@ -410,19 +591,24 @@ def main() -> None:
                     group_groups_test = groups_test.loc[test_mask].reset_index(drop=True)
                     group_metadata_test = metadata_test.loc[test_mask].reset_index(drop=True)
 
-                    predictions, interval_low, interval_high = _fit_predict_with_optional_conformal(
+                    predictions, interval_low, interval_high = _fit_predict_with_optional_stratification(
                         processor=processor,
                         model_type=model_type,
                         multi_output=True,
                         X_train=group_X_train,
                         y_train=group_y_train,
                         groups_train=group_groups_train,
+                        metadata_train=metadata_train.loc[train_mask].reset_index(drop=True),
                         X_test=group_X_test,
+                        metadata_test=group_metadata_test,
                         cv_folds_num=cv_folds_num,
                         param_grid=param_grid,
                         search_strategy=search_strategy,
                         n_iter=n_iter,
                         uncertainty_cfg=uncertainty_cfg,
+                        stratify_by=stratify_by,
+                        min_train_samples_per_stratum=min_train_samples_per_stratum,
+                        min_unique_groups_per_stratum=min_unique_groups_per_stratum,
                     )
 
                     predictions_df = pd.DataFrame(predictions, columns=target_names)
@@ -459,7 +645,11 @@ def main() -> None:
                         logging.info(_("Modelo %s evaluado con exito. RMSE: %.4f | R2: %.4f"), eval_name, metrics["RMSE"], metrics["R2_Score"])
 
             if target_mode != "grouped_multi_output":
+                configured_targets = model_cfg.get('targets')
+                allowed_targets = set(configured_targets) if configured_targets else None
                 for target_name in y_train.columns:
+                    if allowed_targets is not None and target_name not in allowed_targets:
+                        continue
                     train_mask = y_train[target_name].notna()
                     test_mask = y_test[target_name].notna()
                     if train_mask.sum() < 10 or test_mask.sum() < 2:
@@ -480,19 +670,24 @@ def main() -> None:
                     target_groups_test = groups_test.loc[test_mask].reset_index(drop=True)
                     target_metadata_test = metadata_test.loc[test_mask].reset_index(drop=True)
 
-                    predictions, interval_low, interval_high = _fit_predict_with_optional_conformal(
+                    predictions, interval_low, interval_high = _fit_predict_with_optional_stratification(
                         processor=processor,
                         model_type=model_type,
                         multi_output=False,
                         X_train=target_X_train,
                         y_train=target_y_train,
                         groups_train=target_groups_train,
+                        metadata_train=metadata_train.loc[train_mask].reset_index(drop=True),
                         X_test=target_X_test,
+                        metadata_test=target_metadata_test,
                         cv_folds_num=cv_folds_num,
                         param_grid=param_grid,
                         search_strategy=search_strategy,
                         n_iter=n_iter,
                         uncertainty_cfg=uncertainty_cfg,
+                        stratify_by=stratify_by,
+                        min_train_samples_per_stratum=min_train_samples_per_stratum,
+                        min_unique_groups_per_stratum=min_unique_groups_per_stratum,
                     )
 
                     logging.info(_("Generando reportes y metricas clinicas..."))

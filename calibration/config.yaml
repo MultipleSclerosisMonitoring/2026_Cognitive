@@ -56,6 +56,18 @@ data:
         - "ts_updated"
         - "patient_id"
         - "EDSS"
+  feature_filters:
+    allowed_derived_features:
+      - "age_at_test"
+      - "sex_binary"
+      - "delta_dias_digital_papel"
+      - "disease_duration_years"
+    allowed_categorical_features:
+      - "clinical_group"
+    max_train_missing_rate: 0.35
+    min_train_unique_values: 2
+    min_train_std: 1e-8
+    sdmt_fatigue_features_enabled: false
 models:
   - type: "linear"
     target_mode: "single_output"

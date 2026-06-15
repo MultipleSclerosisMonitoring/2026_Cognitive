@@ -388,7 +388,50 @@ Si la masa en cero es alta:
 - baseline de clasificacion `error=0` / `error>0`,
 - despues regresion o conteo condicionada.
 
-## 16. Riesgos conocidos
+## 16. Discusion de escenarios SDMT
+
+Con los datos actualmente disponibles, el SDMT debe interpretarse principalmente como un problema de calibracion digital -> papel, pero no como una traduccion trivial del score digital bruto.
+
+Para comprobarlo, se compararon tres escenarios:
+
+1. `calibration_full`
+   Incluye todas las variables digitales disponibles, incluidas las mas proximas semanticamente al resultado en papel.
+2. `without_outcome_like`
+   Excluye variables conceptualmente demasiado cercanas al score objetivo: `num_err`, `num_simbolos`, `score`, `numdig1`, `numerr1`, `numdig2`, `numerr2`, `numdig3`, `numerr3`.
+3. `kinematic_clinical_only`
+   Mantiene solo variables cinematicas y covariables clinicas.
+
+En la matriz SDMT actual, los escenarios 2 y 3 son equivalentes tras el filtrado, porque al retirar las variables outcome-like solo permanecen:
+
+- `diagonal_inches`
+- `avgdur`
+- `sdvdur`
+- `disease_duration_years`
+- `age_at_test`
+- `delta_dias_digital_papel`
+- `sex_binary`
+
+Los resultados comparativos muestran:
+
+| Escenario | Mejor modelo | RMSE | MAE | R2 | CCC | ICC |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `calibration_full` | `linear` | 6.44 | 4.99 | 0.641 | 0.812 | 0.823 |
+| `without_outcome_like` | `rf` | 6.85 | 5.99 | 0.593 | 0.756 | 0.768 |
+| `kinematic_clinical_only` | `rf` | 6.85 | 5.99 | 0.593 | 0.756 | 0.768 |
+
+Estos resultados sostienen cuatro ideas:
+
+- El mejor comportamiento predictivo se obtiene cuando el sistema usa tambien variables proximas al rendimiento digital directo, por lo que la solucion operativa mas precisa hoy es un calibrador digital -> papel.
+- La eliminacion de variables outcome-like empeora el rendimiento, lo que confirma que estas variables contienen una parte relevante de la señal predictiva.
+- Sin embargo, la degradacion no es catastrofica: el modelo reducido mantiene un rendimiento moderado, lo que indica que las variables cinematicas y clinicas capturan informacion real sobre el rendimiento en papel.
+- Por tanto, el SDMT actual no debe presentarse como un biomarcador puramente mecanistico e independiente del score digital, sino como un sistema de calibracion apoyado por biomarcadores de ejecucion y covariables clinicas.
+
+Implicacion practica:
+
+- si el objetivo es maxima precision clinica, debe priorizarse el escenario `calibration_full`;
+- si el objetivo es interpretar mecanismos o construir modelos menos dependientes del score digital bruto, deben analizarse las ramas `without_outcome_like` o `kinematic_clinical_only`, aceptando una perdida moderada de rendimiento.
+
+## 17. Riesgos conocidos
 
 - muestras pequenas en algunos targets,
 - desbalance EM/Controles,
@@ -396,7 +439,7 @@ Si la masa en cero es alta:
 - diferencias de hardware o usabilidad que inflen error digital,
 - riesgo de sobreajuste si el numero de features supera mucho el numero de pacientes.
 
-## 17. Plan de implementacion inmediato
+## 18. Plan de implementacion inmediato
 
 1. Crear un artefacto reproducible de extraccion y snapshot de datos.
 2. Añadir `delta_dias_digital_papel`, `clinical_group` y escolaridad si existe.
@@ -405,7 +448,7 @@ Si la masa en cero es alta:
 5. Añadir calibracion conformal para intervalos predictivos.
 6. Generar informe comparativo SDMT/TMT por target y por subgrupo.
 
-## 18. Resultado esperado
+## 19. Resultado esperado
 
 El resultado final no sera solo un modelo, sino un sistema reproducible de traduccion digital->papel, con:
 

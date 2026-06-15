@@ -6,6 +6,24 @@ data:
   excel_path: "./data/datos_papel.xlsx"
   clinical_skiprows: 2
   test_type: "tmt"
+  feature_filters:
+    allowed_derived_features:
+      - "age_at_test"
+      - "sex_binary"
+      - "delta_dias_digital_papel"
+    allowed_categorical_features:
+      - "clinical_group"
+      - "education_band"
+    max_train_missing_rate: 0.35
+    min_train_unique_values: 2
+    min_train_std: 1.0e-8
+    tmt_use_advanced_kinematics: true
+    tmt_transform_strategy: "log1p"
+    tmt_feature_selection_enabled: true
+    tmt_include_demographic_covariates: false
+    tmt_feature_selection_max_features: 24
+    tmt_feature_selection_min_features: 8
+    tmt_feature_selection_step_ratio: 0.2
   # Column configuration per test type
   column_mapping:
     sdmt:
@@ -57,32 +75,43 @@ data:
         - "patient_id"
         - "EDSS"
 models:
-  - type: "linear"
+  - type: "ridge"
     target_mode: "single_output"
     cv_folds: 3
-  - type: "rf"
-    target_mode: "single_output"
-    cv_folds: 3
-    search_strategy: "random"
-    n_iter: 50
+    search_strategy: "grid"
     param_grid:
-      n_estimators: [50, 100]
-      max_depth: [null, 10]
+      alpha: [0.1, 1.0, 5.0, 10.0]
   - type: "rf"
     target_mode: "grouped_multi_output"
     cv_folds: 3
+    stratify_by: "education_band"
+    min_train_samples_per_stratum: 10
+    min_unique_groups_per_stratum: 2
     search_strategy: "random"
-    n_iter: 50
+    n_iter: 20
     param_grid:
-      n_estimators: [50, 100]
-      max_depth: [null, 10]
+      n_estimators: [150, 300]
+      max_depth: [6, 8, null]
+      min_samples_leaf: [1, 2, 4]
   - type: "xgboost"
     target_mode: "single_output"
     cv_folds: 3
     search_strategy: "grid"
     param_grid:
-      learning_rate: [0.01, 0.1]
-      max_depth: [3, 5]
+      learning_rate: [0.03, 0.05, 0.1]
+      max_depth: [3, 4]
+      n_estimators: [150, 250]
+      subsample: [0.8, 1.0]
+  - type: "ensemble"
+    target_mode: "single_output"
+    cv_folds: 3
+  - type: "error_classifier"
+    target_mode: "single_output"
+    cv_folds: 3
+    stratify_by: "education_band"
+    min_train_samples_per_stratum: 10
+    min_unique_groups_per_stratum: 2
+    targets: ["tmt_paper_errors_a", "tmt_paper_errors_b"]
 uncertainty:
   enabled: true
   conformal_alpha: 0.10

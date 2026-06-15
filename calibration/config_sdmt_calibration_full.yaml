@@ -1,0 +1,104 @@
+data:
+  db_host: "localhost"
+  db_port: "5432"
+  excel_path: "./data/datos_papel.xlsx"
+  clinical_skiprows: 2
+  test_type: "sdmt"
+  column_mapping:
+    sdmt:
+      target_columns:
+        - name: "sdmt_paper_score"
+          hints:
+            - "Día 1 SDMT Papel score"
+            - "SDMT Papel"
+            - "sdmt_papel"
+      features_to_drop:
+        - "id"
+        - "codeid"
+        - "ts_created"
+        - "ts_updated"
+        - "patient_id"
+        - "sset"
+        - "EDSS"
+    tmt:
+      target_columns:
+        - name: "tmt_paper_score_a"
+          group: "score"
+          hints:
+            - "DIA 1 TMT papel (tiempo) A"
+            - "TMT papel (tiempo) A"
+            - "tmt papel tiempo a"
+        - name: "tmt_paper_score_b"
+          group: "score"
+          hints:
+            - "DIA 1 TMT papel (tiempo) B"
+            - "TMT papel (tiempo) B"
+            - "tmt papel tiempo b"
+        - name: "tmt_paper_errors_a"
+          group: "errors"
+          hints:
+            - "DIA 1 TMT papel (errores) A"
+            - "TMT papel (errores) A"
+            - "tmt papel errores a"
+        - name: "tmt_paper_errors_b"
+          group: "errors"
+          hints:
+            - "DIA 1 TMT papel (errores) B"
+            - "TMT papel (errores) B"
+            - "tmt papel errores b"
+      features_to_drop:
+        - "id"
+        - "codeid"
+        - "ts_created"
+        - "ts_updated"
+        - "patient_id"
+        - "EDSS"
+  feature_filters:
+    allowed_derived_features:
+      - "age_at_test"
+      - "sex_binary"
+      - "delta_dias_digital_papel"
+      - "disease_duration_years"
+    allowed_categorical_features:
+      - "clinical_group"
+    max_train_missing_rate: 0.35
+    min_train_unique_values: 2
+    min_train_std: 1e-8
+    sdmt_fatigue_features_enabled: false
+models:
+  - type: "linear"
+    target_mode: "single_output"
+    cv_folds: 3
+  - type: "rf"
+    target_mode: "single_output"
+    cv_folds: 3
+    search_strategy: "random"
+    n_iter: 50
+    param_grid:
+      n_estimators: [50, 100]
+      max_depth: [null, 10]
+  - type: "rf"
+    target_mode: "grouped_multi_output"
+    cv_folds: 3
+    search_strategy: "random"
+    n_iter: 50
+    param_grid:
+      n_estimators: [50, 100]
+      max_depth: [null, 10]
+  - type: "xgboost"
+    target_mode: "single_output"
+    cv_folds: 3
+    search_strategy: "grid"
+    param_grid:
+      learning_rate: [0.01, 0.1]
+      max_depth: [3, 5]
+uncertainty:
+  enabled: true
+  conformal_alpha: 0.10
+  calibration_size: 0.20
+  bootstrap_iterations: 500
+  bootstrap_confidence: 0.95
+  random_state: 42
+output:
+  excel_report: "resultados_sdmt_calibration_full.xlsx"
+  html_plot: "graficos_sdmt_calibration_full.html"

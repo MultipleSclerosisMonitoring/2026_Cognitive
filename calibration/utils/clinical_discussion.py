@@ -83,7 +83,7 @@ def save_stratified_metrics(
         df['sex_group'] = df['sex_binary'].map({0.0: 'Male', 1.0: 'Female'})
 
     stratifiers = []
-    for column in ['clinical_group', 'age_band', 'sex_group']:
+    for column in ['clinical_group', 'age_band', 'sex_group', 'education_band', 'edss_band', 'cognitive_burden_band', 'physical_impact_band']:
         if column in df.columns:
             stratifiers.append(column)
 
@@ -152,11 +152,16 @@ def build_clinical_discussion_workbook(output_excel: str, source_workbooks: Iter
         if not path.exists():
             continue
         try:
-            summary = pd.read_excel(path)
+            summary = pd.read_excel(path, sheet_name='Metrics')
             summary['SourceWorkbook'] = path.name
             summary_frames.append(summary)
         except Exception:
-            pass
+            try:
+                summary = pd.read_excel(path)
+                summary['SourceWorkbook'] = path.name
+                summary_frames.append(summary)
+            except Exception:
+                pass
         try:
             stratified = pd.read_excel(path, sheet_name='StratifiedMetrics')
             stratified['SourceWorkbook'] = path.name

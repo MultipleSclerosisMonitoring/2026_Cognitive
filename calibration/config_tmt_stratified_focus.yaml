@@ -1,0 +1,113 @@
+data:
+  db_host: localhost
+  db_port: '5432'
+  excel_path: ./data/datos_papel.xlsx
+  clinical_skiprows: 2
+  test_type: tmt
+  feature_filters:
+    allowed_derived_features:
+    - age_at_test
+    - sex_binary
+    - delta_dias_digital_papel
+    allowed_categorical_features:
+    - clinical_group
+    - education_band
+    max_train_missing_rate: 0.35
+    min_train_unique_values: 2
+    min_train_std: 1.0e-08
+    tmt_use_advanced_kinematics: true
+    tmt_transform_strategy: log1p
+    tmt_feature_selection_enabled: true
+    tmt_include_demographic_covariates: false
+    tmt_feature_selection_max_features: 24
+    tmt_feature_selection_min_features: 8
+    tmt_feature_selection_step_ratio: 0.2
+  column_mapping:
+    sdmt:
+      target_columns:
+      - name: sdmt_paper_score
+        hints:
+        - Día 1 SDMT Papel score
+        - SDMT Papel
+        - sdmt_papel
+      features_to_drop:
+      - id
+      - codeid
+      - ts_created
+      - ts_updated
+      - patient_id
+      - sset
+      - EDSS
+    tmt:
+      target_columns:
+      - name: tmt_paper_score_a
+        group: score
+        hints:
+        - DIA 1 TMT papel (tiempo) A
+        - TMT papel (tiempo) A
+        - tmt papel tiempo a
+      - name: tmt_paper_score_b
+        group: score
+        hints:
+        - DIA 1 TMT papel (tiempo) B
+        - TMT papel (tiempo) B
+        - tmt papel tiempo b
+      - name: tmt_paper_errors_a
+        group: errors
+        hints:
+        - DIA 1 TMT papel (errores) A
+        - TMT papel (errores) A
+        - tmt papel errores a
+      - name: tmt_paper_errors_b
+        group: errors
+        hints:
+        - DIA 1 TMT papel (errores) B
+        - TMT papel (errores) B
+        - tmt papel errores b
+      features_to_drop:
+      - id
+      - codeid
+      - ts_created
+      - ts_updated
+      - patient_id
+      - EDSS
+models:
+- type: rf
+  target_mode: grouped_multi_output
+  cv_folds: 3
+  stratify_by: education_band
+  min_train_samples_per_stratum: 10
+  min_unique_groups_per_stratum: 2
+  search_strategy: random
+  n_iter: 20
+  param_grid:
+    n_estimators:
+    - 150
+    - 300
+    max_depth:
+    - 6
+    - 8
+    - null
+    min_samples_leaf:
+    - 1
+    - 2
+    - 4
+- type: error_classifier
+  target_mode: single_output
+  cv_folds: 3
+  stratify_by: education_band
+  min_train_samples_per_stratum: 10
+  min_unique_groups_per_stratum: 2
+  targets:
+  - tmt_paper_errors_a
+  - tmt_paper_errors_b
+uncertainty:
+  enabled: true
+  conformal_alpha: 0.1
+  calibration_size: 0.2
+  bootstrap_iterations: 500
+  bootstrap_confidence: 0.95
+  random_state: 42
+output:
+  excel_report: resultados_tmt_stratified_focus.xlsx
+  html_plot: graficos_tmt_stratified_focus.html

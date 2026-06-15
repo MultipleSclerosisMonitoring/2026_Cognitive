@@ -97,6 +97,9 @@ def test_clinical_discussion_outputs_stratified_and_summary_files(tmp_path):
         "clinical_group": ["EM", "EM", "Controles", "Controles", "EM", "Controles"],
         "age_band": ["<40", "40-54", "40-54", "55+", "55+", "<40"],
         "sex_binary": [0.0, 1.0, 1.0, 0.0, 1.0, 0.0],
+        "education_band": ["Primary", "Secondary", "University", "University", "Secondary", "Primary"],
+        "edss_band": ["EDSS_mild", "EDSS_moderate", "EDSS_moderate", "EDSS_advanced", "EDSS_mild", "EDSS_moderate"],
+        "cognitive_burden_band": ["Cog_low", "Cog_moderate", "Cog_high", "Cog_high", "Cog_moderate", "Cog_low"],
     })
     save_stratified_metrics(
         output_excel=str(output_excel),
@@ -121,3 +124,32 @@ def test_clinical_discussion_outputs_stratified_and_summary_files(tmp_path):
     assert not stratified.empty
     comparison = pd.read_excel(comparison_path, sheet_name="BestByTarget")
     assert "Clinical_Status" in comparison.columns
+
+
+def test_reporting_uses_dedicated_metrics_sheet_when_feature_audit_exists(tmp_path):
+    output_excel = tmp_path / "metrics.xlsx"
+    save_feature_audit(
+        output_excel=str(output_excel),
+        test_type="tmt",
+        feature_audit={
+            "removed_by_reason": {"non_digital_or_non_stable_clinical": ["foo"]},
+            "selected_features_final": ["bar"],
+        },
+    )
+    reporter = ReportGenerator(
+        output_excel=str(output_excel),
+        output_html=str(tmp_path / "plots" / "index.html"),
+    )
+
+    reporter.evaluate_and_save(
+        y_true=pd.Series([1.0, 2.0, 3.0]),
+        y_pred=pd.Series([1.1, 1.9, 3.2]),
+        model_name="ridge_tmt_paper_score_a",
+    )
+
+    metrics_df = pd.read_excel(output_excel, sheet_name="Metrics")
+    feature_df = pd.read_excel(output_excel, sheet_name="FeatureAudit")
+
+    assert "Model" in metrics_df.columns
+    assert metrics_df["Model"].dropna().tolist() == ["ridge_tmt_paper_score_a"]
+    assert set(feature_df["Reason"].astype(str)) >= {"non_digital_or_non_stable_clinical", "selected_feature_final"}
