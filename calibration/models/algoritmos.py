@@ -83,13 +83,20 @@ class StandardCalibrator(BaseModelCalibrator):
         efficiency or an exhaustive grid search for maximum precision.
         Finally, it internally stores the winning estimator for future inference.
         
-        :param X: Feature matrix extracted from mobile-device interactions.
-        :param y: Paper-based target score vector.
-        :param param_grid: Optional hyperparameter search space.
-        :param cv_folds: Fold count or a pre-configured grouped splitter.
-        :param search_strategy: Either "grid" or "random".
-        :param n_iter: Maximum sampled settings for random search.
-        :raises ValueError: If the feature matrix or target vector has null data or incompatible shapes.
+        Args:
+            X (pd.DataFrame): Feature matrix extracted from the mobile device interactions.
+            y (pd.Series): Target vector representing the paper-based gold standard scores.
+            param_grid (Optional[Dict[str, list]]): Search space for hyperparameters.
+                If set to `None`, the model trains using the library's default parameters.
+            cv_folds (Any): Integer specifying the number of folds or an iterable yielding
+                train/test splits. Highly recommended to pass a pre-configured GroupKFold.
+            search_strategy (str): Exploration strategy. Accepts either "grid" or "random".
+            n_iter (int): Computational budget representing the number of parameter settings
+                that are sampled if the strategy is "random". Ignored for "grid".
+
+        Raises:
+            ValueError: If the feature matrix X or target vector Y contain null data
+                or shape inconsistencies.
         """
         # Validate inputs first (will call parent's validation)
         super().train(X, y)

@@ -1,7 +1,7 @@
 Reporting API
 =============
 
-.. automodule:: calibration.utils.reporting
+.. autoclass:: calibration.utils.reporting.ReportGenerator
    :members: ReportGenerator
    :show-inheritance:
 
