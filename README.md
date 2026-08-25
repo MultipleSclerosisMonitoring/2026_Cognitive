@@ -196,4 +196,3 @@ As a rule of thumb:
 
 Una hoja de ruta técnica que detalla las extensiones arquitectónicas naturales que el sistema admite gracias a su alta modularidad, tales como el soporte para Deep Learning (redes neuronales recurrentes o Transformers), motores automáticos de ingeniería de características, interfaces de programación de aplicaciones (APIs) en tiempo real para aplicaciones periféricas e integración multinivel de biomarcadores complementarios.
 
-
