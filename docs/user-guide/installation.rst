@@ -31,6 +31,14 @@ errors::
 
 Open ``docs/_build/html/index.html`` after a successful build.
 
+GitHub Pages
+------------
+
+The repository workflow publishes the static Sphinx output directly. It does
+not require a Jekyll theme. Enable **GitHub Actions** as the Pages source in
+the repository settings; the workflow creates ``.nojekyll`` in the uploaded
+artifact as an additional safeguard.
+
 Environment
 -----------
 

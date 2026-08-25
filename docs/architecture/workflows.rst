@@ -43,4 +43,11 @@ GitHub Pages deployment
 
 The workflow in ``.github/workflows/docs.yml`` builds this tree with
 ``sphinx-build -W --keep-going`` and publishes ``docs/_build/html`` using the
-official Pages artifact and deployment actions.
+official Pages artifact and deployment actions. Sphinx already produces a
+complete static HTML site, so a Jekyll theme is not required. The workflow adds
+``.nojekyll`` to the artifact to prevent branch-style Pages processing from
+rewriting Sphinx paths or ignoring underscore-prefixed assets.
+
+In repository settings, choose **Settings > Pages > Source > GitHub Actions**.
+Do not select **Deploy from a branch**, because that mode is the one that
+expects a Jekyll-oriented branch layout.
