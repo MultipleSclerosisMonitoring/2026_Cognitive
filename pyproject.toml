@@ -17,7 +17,9 @@ dependencies = [
     "plotly (>=5.0.0,<6.0.0)",
     "openpyxl (>=3.0.0,<4.0.0)",
     "pyyaml (>=6.0,<7.0.0)",
-    "python-dotenv (>=1.0.0,<2.0.0)"
+    "python-dotenv (>=1.0.0,<2.0.0)",
+    "scipy (>=1.9.0,<2.0.0)",
+    "statsmodels (>=0.14.0,<1.0.0)"
 ]
 
 
@@ -28,3 +30,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"
 sphinx = "^9.1.0"
+sphinx-autodoc-typehints = "^3.2.0"
+sphinxcontrib-mermaid = "^2.0.0"
+roman-numerals = "^1.0.0"

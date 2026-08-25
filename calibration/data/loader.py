@@ -523,16 +523,25 @@ class DataProcessor:
                 self.excel_path,
                 self.clinical_skiprows
             )
-            workbook = pd.read_excel(
-                self.excel_path,
-                skiprows=self.clinical_skiprows,
-                sheet_name=None
-            )
             clinical_frames: List[pd.DataFrame] = []
 
-            for sheet_name, df_sheet in workbook.items():
+            raw_workbook = pd.read_excel(self.excel_path, header=None, sheet_name=None)
+            for sheet_name, raw_sheet in raw_workbook.items():
+                header_candidates = raw_sheet.iloc[: self.clinical_skiprows + 3]
+                header_rows = header_candidates.apply(
+                    lambda row: row.astype('string').str.strip().eq('Código').any(),
+                    axis=1,
+                )
+                header_matches = header_rows[header_rows].index.tolist()
+                header_row = header_matches[0] if header_matches else self.clinical_skiprows
+                df_sheet = pd.read_excel(
+                    self.excel_path,
+                    sheet_name=sheet_name,
+                    header=header_row,
+                )
                 df_normalized = self._normalize_clinical_columns(df_sheet)
                 df_normalized = self._normalize_clinical_dtypes(df_normalized)
+                df_normalized = df_normalized.dropna(how='all')
                 df_normalized["clinical_source_sheet"] = str(sheet_name)
                 clinical_frames.append(df_normalized)
 
@@ -540,11 +549,10 @@ class DataProcessor:
                 raise DataProcessingError(_("El libro clínico no contiene hojas legibles"))
 
             df_clinical = pd.concat(clinical_frames, ignore_index=True, sort=False)
-            df_clinical = df_clinical.dropna(how='all')
             logger.info(
                 _("Datos clínicos combinados desde %d hoja(s): %s"),
                 len(clinical_frames),
-                list(workbook.keys())
+                list(raw_workbook.keys())
             )
             return df_clinical
         except Exception as e:
@@ -852,7 +860,17 @@ class DataProcessor:
         df: pd.DataFrame,
         test_type: str,
         test_size: float = 0.2
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, Dict[str, List[str]]]:
+    ) -> Tuple[
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.Series,
+        pd.Series,
+        pd.DataFrame,
+        pd.DataFrame,
+        Dict[str, List[str]],
+    ]:
         """Cleans the dataset and performs the initial train-test partitioning.
 
         This method identifies the appropriate target column depending on the test
@@ -868,13 +886,8 @@ class DataProcessor:
                                          in the test split. Defaults to 0.2.
 
         Returns:
-            Tuple containing:
-                - X_train (pd.DataFrame): Features for the training set.
-                - X_test (pd.DataFrame): Features for the hold-out test set.
-                - y_train (pd.Series): Target values for the training set.
-                - y_test (pd.Series): Target values for the test set.
-                - groups_train (pd.Series): Patient IDs corresponding to the training
-                  set, necessary for grouped cross-validation.
+            A tuple containing the training and hold-out feature matrices, target
+            frames, patient-group series, metadata frames, and target-group mapping.
                   
         Raises:
             DataProcessingError: If target column not found, insufficient data, or other issues

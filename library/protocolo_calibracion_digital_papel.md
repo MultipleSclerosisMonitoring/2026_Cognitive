@@ -162,9 +162,11 @@ Toda exclusion debe quedar en un log tabular.
 
 ## 8. Splits y validacion sin fuga
 
+Las reglas siguientes son el diseño recomendado del protocolo. La implementación actual aplica separación por paciente mediante `GroupShuffleSplit` para hold-out y validación cruzada agrupada configurable; todavía no ejecuta automáticamente el esquema repetido descrito en esta sección.
+
 ### 8.1 Esquema principal
 
-Usar un esquema `nested grouped CV` por paciente:
+Para una versión completa del protocolo, usar un esquema `nested grouped CV` por paciente:
 
 - outer loop: `GroupKFold` o `GroupShuffleSplit` repetido por paciente,
 - inner loop: seleccion de hiperparametros solo dentro del train del outer loop,
@@ -187,6 +189,8 @@ Si hay retest:
 ## 9. Modelado recomendado
 
 ### 9.1 Filosofia
+
+La siguiente familia es una recomendación metodológica. La cola actualmente ejecutable se define en cada YAML; por ejemplo, `config.yaml` usa modelos linear, Random Forest y XGBoost, mientras `config_tmt.yaml` añade Ridge, multi-output, ensemble y clasificador de errores.
 
 No elegir un unico modelo desde el principio. Se recomienda una familia escalonada:
 
@@ -312,6 +316,8 @@ Un modelo se considerara candidato final si cumple simultaneamente:
 
 ## 13. Entregables por corrida
 
+Esta lista define el entregable objetivo del protocolo completo. La corrida actualmente disponible genera los libros Excel configurados, las métricas, los gráficos HTML, los análisis estratificados y la comparación clínica cuando existen los dos libros de resultados; hash del dataset, tabla formal de exclusiones, artefactos serializados y CV repetida quedan como extensiones pendientes.
+
 Cada experimento debe producir:
 
 - dataset congelado o referencia hash,
@@ -327,6 +333,8 @@ Cada experimento debe producir:
 - informe resumen reproducible en Markdown o HTML.
 
 ## 14. Flujo operativo minimo en este repositorio
+
+El flujo siguiente describe la operación recomendada y no implica que cada fase esté automatizada por `calibration.main`. En particular, el comando principal requiere acceso a PostgreSQL (o al CSV de fallback correspondiente) y no crea por sí solo un dataset congelado ni un commit/hash de versión.
 
 ### Fase A. Consolidacion de datos
 
@@ -351,7 +359,7 @@ Cada experimento debe producir:
 
 ### Fase D. Validacion
 
-- nested grouped CV repetida,
+- validación agrupada por paciente; la CV repetida/nested grouped CV es la ampliación recomendada,
 - bootstrap agrupado por paciente,
 - analisis de subgrupos,
 - analisis de retest.

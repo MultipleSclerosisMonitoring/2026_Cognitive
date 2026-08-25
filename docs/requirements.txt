@@ -1,0 +1,4 @@
+sphinx>=9.1,<10
+sphinx-autodoc-typehints>=3.2,<4
+sphinxcontrib-mermaid>=2,<3
+roman-numerals>=1,<2

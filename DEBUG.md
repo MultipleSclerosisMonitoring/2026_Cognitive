@@ -8,7 +8,7 @@
 - **Características**:
   - Carga automáticamente `.env`
   - Pasa configuración desde `calibration/config.yaml`
-  - Valida que `.env` exista antes de ejecutar
+  - Valida que `.env` o `calibration/config.yaml` exista antes de ejecutar
   - Muestra valores de retorno
 
 **Comando equivalente:**
@@ -84,11 +84,11 @@ pytest -v --tb=short tests/
 ---
 
 ### 7. **🔐 Debug - Sin Cargar .env**
-- **Uso**: Probar fallback a credenciales en `config.yaml`
+- **Uso**: Probar el comportamiento cuando no se carga `.env`
 - **Características**:
   - No carga variables de `.env`
-  - Valida que el fallback funciona correctamente
-  - Seguridad: verifica que no se filtren credenciales
+  - Permite comprobar que la configuración de idioma por CLI funciona sin depender de `.env`
+  - La ejecución de calibración seguirá necesitando `DB_USER`, `DB_PASSWORD` y `DB_NAME`; `config.yaml` solo aporta valores de conexión no sensibles como host y puerto
 
 ---
 
