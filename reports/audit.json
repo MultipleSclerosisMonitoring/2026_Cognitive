@@ -1,0 +1,93 @@
+{
+  "sha256": "7fcccc953a632b3fa33ddafb726240c5a1e941c91aab05721afa537edcc85683",
+  "groups": [
+    {
+      "group": "pacientes",
+      "sheet_index": 0,
+      "header_excel_row": 3,
+      "coded_rows": 93,
+      "unique_codes": 93,
+      "variables": {
+        "edad": {
+          "excel_column_index_zero_based": 12,
+          "numeric": 93,
+          "empty": 0,
+          "non_numeric_or_nonfinite": 0,
+          "nonpositive_numeric": 1
+        },
+        "sdmt_papel": {
+          "excel_column_index_zero_based": 36,
+          "numeric": 92,
+          "empty": 1,
+          "non_numeric_or_nonfinite": 0,
+          "nonpositive_numeric": 0
+        },
+        "sdmt_digital": {
+          "excel_column_index_zero_based": 34,
+          "numeric": 91,
+          "empty": 2,
+          "non_numeric_or_nonfinite": 0,
+          "nonpositive_numeric": 0
+        },
+        "tmt_a_papel": {
+          "excel_column_index_zero_based": 30,
+          "numeric": 91,
+          "empty": 1,
+          "non_numeric_or_nonfinite": 1,
+          "nonpositive_numeric": 0
+        },
+        "tmt_b_papel": {
+          "excel_column_index_zero_based": 31,
+          "numeric": 91,
+          "empty": 1,
+          "non_numeric_or_nonfinite": 1,
+          "nonpositive_numeric": 0
+        }
+      }
+    },
+    {
+      "group": "controles",
+      "sheet_index": 1,
+      "header_excel_row": 2,
+      "coded_rows": 20,
+      "unique_codes": 20,
+      "variables": {
+        "edad": {
+          "excel_column_index_zero_based": 10,
+          "numeric": 19,
+          "empty": 1,
+          "non_numeric_or_nonfinite": 0,
+          "nonpositive_numeric": 1
+        },
+        "sdmt_papel": {
+          "excel_column_index_zero_based": 30,
+          "numeric": 18,
+          "empty": 2,
+          "non_numeric_or_nonfinite": 0,
+          "nonpositive_numeric": 0
+        },
+        "sdmt_digital": {
+          "excel_column_index_zero_based": 28,
+          "numeric": 18,
+          "empty": 2,
+          "non_numeric_or_nonfinite": 0,
+          "nonpositive_numeric": 0
+        },
+        "tmt_a_papel": {
+          "excel_column_index_zero_based": 24,
+          "numeric": 19,
+          "empty": 1,
+          "non_numeric_or_nonfinite": 0,
+          "nonpositive_numeric": 0
+        },
+        "tmt_b_papel": {
+          "excel_column_index_zero_based": 25,
+          "numeric": 18,
+          "empty": 2,
+          "non_numeric_or_nonfinite": 0,
+          "nonpositive_numeric": 0
+        }
+      }
+    }
+  ]
+}

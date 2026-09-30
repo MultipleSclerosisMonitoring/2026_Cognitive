@@ -1,0 +1,1457 @@
+{
+  "audit": {
+    "sha256": "c57fd6b701305f377f0bb60b1d6bba0228643490eb956078d8504c0d42f94ef4",
+    "groups": [
+      {
+        "group": "pacientes",
+        "sheet_index": 0,
+        "header_excel_row": 3,
+        "coded_rows": 102,
+        "unique_codes": 102,
+        "variables": {
+          "edad": {
+            "excel_column_index_zero_based": 12,
+            "numeric": 101,
+            "empty": 1,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          },
+          "sdmt_papel": {
+            "excel_column_index_zero_based": 36,
+            "numeric": 101,
+            "empty": 1,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          },
+          "sdmt_digital": {
+            "excel_column_index_zero_based": 34,
+            "numeric": 100,
+            "empty": 2,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          },
+          "tmt_a_papel": {
+            "excel_column_index_zero_based": 30,
+            "numeric": 101,
+            "empty": 1,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          },
+          "tmt_b_papel": {
+            "excel_column_index_zero_based": 31,
+            "numeric": 101,
+            "empty": 1,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          }
+        }
+      },
+      {
+        "group": "controles",
+        "sheet_index": 1,
+        "header_excel_row": 2,
+        "coded_rows": 19,
+        "unique_codes": 19,
+        "variables": {
+          "edad": {
+            "excel_column_index_zero_based": 10,
+            "numeric": 18,
+            "empty": 1,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          },
+          "sdmt_papel": {
+            "excel_column_index_zero_based": 30,
+            "numeric": 18,
+            "empty": 1,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          },
+          "sdmt_digital": {
+            "excel_column_index_zero_based": 28,
+            "numeric": 18,
+            "empty": 1,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          },
+          "tmt_a_papel": {
+            "excel_column_index_zero_based": 24,
+            "numeric": 19,
+            "empty": 0,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          },
+          "tmt_b_papel": {
+            "excel_column_index_zero_based": 25,
+            "numeric": 18,
+            "empty": 1,
+            "non_numeric_or_nonfinite": 0,
+            "nonpositive_numeric": 0
+          }
+        }
+      }
+    ]
+  },
+  "seed": 20260930,
+  "bootstrap_replicates": 200,
+  "versions": {
+    "numpy": "1.26.4",
+    "pandas": "2.1.4",
+    "scipy": "1.11.4",
+    "scikit-learn": "1.4.2",
+    "statsmodels": "0.14.2",
+    "xlrd": "2.0.2"
+  },
+  "code_sha256": "19e4f838842094f3981acc2ea3f6a841475b2bbd8a0f9c808ddb61d5251aba82",
+  "outcomes": {
+    "sdmt": {
+      "scale": "points",
+      "n": 119,
+      "n_by_group": {
+        "0": 18,
+        "1": 101
+      },
+      "descriptive": {
+        "0": {
+          "count": 18,
+          "mean": 55.22222222222222,
+          "std": 13.562732483474731,
+          "median": 54.0
+        },
+        "1": {
+          "count": 101,
+          "mean": 44.801980198019805,
+          "std": 12.34343534189749,
+          "median": 45.0
+        }
+      },
+      "missing_predictors": {
+        "age": 1,
+        "sex": 0,
+        "education": 0,
+        "tug": 2
+      },
+      "inference": {
+        "n": 118,
+        "n_controls": 17,
+        "formula": "y ~ group + age + C(sex) + C(education)",
+        "group_effect": -8.30688094078877,
+        "group_ci95": [
+          -14.083991587947075,
+          -2.529770293630464
+        ],
+        "group_p": 0.005220313445705578,
+        "coefficients": {
+          "Intercept": {
+            "estimate": 65.74948752268311,
+            "ci95": [
+              46.59702576770049,
+              84.90194927766574
+            ],
+            "p": 5.309441762938822e-10
+          },
+          "C(sex)[T.mujer]": {
+            "estimate": 1.7132916716646625,
+            "ci95": [
+              -3.4948218828533406,
+              6.9214052261826655
+            ],
+            "p": 0.5158631321733202
+          },
+          "C(education)[T.medios]": {
+            "estimate": 3.96326578603345,
+            "ci95": [
+              -2.2740244681900204,
+              10.20055604025692
+            ],
+            "p": 0.21065069628199123
+          },
+          "C(education)[T.superiores]": {
+            "estimate": 8.71591845003774,
+            "ci95": [
+              1.9241420075916995,
+              15.507694892483782
+            ],
+            "p": 0.012365116412730394
+          },
+          "group": {
+            "estimate": -8.30688094078877,
+            "ci95": [
+              -14.083991587947075,
+              -2.529770293630464
+            ],
+            "p": 0.005220313445705578
+          },
+          "age": {
+            "estimate": -0.40104845864837846,
+            "ci95": [
+              -0.7231569294962596,
+              -0.07893998780049732
+            ],
+            "p": 0.015141051343767385
+          }
+        },
+        "separate_models": {
+          "0": {
+            "n": 17,
+            "rank": 5,
+            "parameters": 5,
+            "coefficients": {
+              "Intercept": 70.20002677168847,
+              "C(sex)[T.mujer]": 3.179053416238181,
+              "C(education)[T.medios]": 4.865989152691338,
+              "C(education)[T.superiores]": 6.7204889719383445,
+              "age": -0.5052923974336597
+            },
+            "ci95": {
+              "Intercept": {
+                "0": 32.29952450612498,
+                "1": 108.10052903725196
+              },
+              "C(sex)[T.mujer]": {
+                "0": -9.99120907753967,
+                "1": 16.34931591001603
+              },
+              "C(education)[T.medios]": {
+                "0": -12.744917972738701,
+                "1": 22.476896278121377
+              },
+              "C(education)[T.superiores]": {
+                "0": -10.706383911995896,
+                "1": 24.147361855872585
+              },
+              "age": {
+                "0": -1.087719226084681,
+                "1": 0.07713443121736152
+              }
+            }
+          },
+          "1": {
+            "n": 101,
+            "rank": 5,
+            "parameters": 5,
+            "coefficients": {
+              "Intercept": 57.08596627458803,
+              "C(sex)[T.mujer]": 1.245281372375821,
+              "C(education)[T.medios]": 3.6416967720494764,
+              "C(education)[T.superiores]": 8.712269956895343,
+              "age": -0.3842575385463063
+            },
+            "ci95": {
+              "Intercept": {
+                "0": 33.8238867950898,
+                "1": 80.34804575408626
+              },
+              "C(sex)[T.mujer]": {
+                "0": -4.571861921972007,
+                "1": 7.06242466672365
+              },
+              "C(education)[T.medios]": {
+                "0": -3.588131198134551,
+                "1": 10.871524742233504
+              },
+              "C(education)[T.superiores]": {
+                "0": 1.1477236642850634,
+                "1": 16.27681624950562
+              },
+              "age": {
+                "0": -0.7559064786094665,
+                "1": -0.012608598483146105
+              }
+            }
+          }
+        },
+        "age_interaction_p": 0.7689369571141312,
+        "group_and_age_interaction_joint_p": 0.021793460633441668,
+        "age_overlap_sensitivity": {
+          "range": [
+            27.115068493150684,
+            63.76438356164383
+          ],
+          "n": 111,
+          "effect": -6.639455944210214,
+          "ci95": [
+            -11.926333469181223,
+            -1.3525784192392036
+          ],
+          "note": "Age overlap only; not full multivariate common support"
+        }
+      },
+      "regression_cv": [
+        {
+          "group": 0,
+          "model": "mean",
+          "n": 18,
+          "mae": 10.876190476190475,
+          "rmse": 13.310278253314241,
+          "r2": -0.019772888120569432,
+          "selected_alphas": []
+        },
+        {
+          "group": 0,
+          "model": "linear",
+          "n": 18,
+          "mae": 10.262657932086073,
+          "rmse": 12.541422423000805,
+          "r2": 0.09463691104576899,
+          "selected_alphas": []
+        },
+        {
+          "group": 0,
+          "model": "ridge_base",
+          "n": 18,
+          "mae": 9.47086694767049,
+          "rmse": 12.096182731186927,
+          "r2": 0.15777937962141464,
+          "selected_alphas": [
+            10.0,
+            10.0,
+            1.0,
+            1.0,
+            10.0
+          ]
+        },
+        {
+          "group": 0,
+          "model": "ridge_tug",
+          "n": 18,
+          "mae": 9.020197850408545,
+          "rmse": 11.558081519972161,
+          "r2": 0.2310454006389937,
+          "selected_alphas": [
+            10.0,
+            10.0,
+            10.0,
+            10.0,
+            10.0
+          ]
+        },
+        {
+          "group": 1,
+          "model": "mean",
+          "n": 101,
+          "mae": 9.457618261826182,
+          "rmse": 12.401911099041527,
+          "r2": -0.019592209889207846,
+          "selected_alphas": []
+        },
+        {
+          "group": 1,
+          "model": "linear",
+          "n": 101,
+          "mae": 8.527512079184955,
+          "rmse": 11.507022696295579,
+          "r2": 0.12224114321920343,
+          "selected_alphas": []
+        },
+        {
+          "group": 1,
+          "model": "ridge_base",
+          "n": 101,
+          "mae": 8.470484134137802,
+          "rmse": 11.50169892998301,
+          "r2": 0.1230531520540189,
+          "selected_alphas": [
+            10.0,
+            10.0,
+            10.0,
+            10.0,
+            10.0
+          ]
+        },
+        {
+          "group": 1,
+          "model": "ridge_tug",
+          "n": 101,
+          "mae": 8.00375628089638,
+          "rmse": 10.909382881228993,
+          "r2": 0.21104969321227562,
+          "selected_alphas": [
+            1.0,
+            10.0,
+            10.0,
+            10.0,
+            10.0
+          ]
+        }
+      ],
+      "discrimination": {
+        "demographic": {
+          "auc": 0.5143014301430143,
+          "sensitivity": 0.9900990099009901,
+          "specificity": 0.0,
+          "balanced_accuracy": 0.49504950495049505,
+          "brier": 0.13594230587456166,
+          "threshold": 0.5
+        },
+        "demographic_cognitive": {
+          "auc": 0.6243124312431243,
+          "sensitivity": 0.9801980198019802,
+          "specificity": 0.1111111111111111,
+          "balanced_accuracy": 0.5456545654565457,
+          "brier": 0.12824023601872037,
+          "threshold": 0.5
+        },
+        "normative_deviation": {
+          "auc": 0.6853685368536854
+        },
+        "auc_increment": 0.11001100110010997
+      },
+      "bootstrap": {
+        "requested": 200,
+        "successful": 200,
+        "failed": 0,
+        "method": "Stratified participant bootstrap; duplicate copies stay in same fold; full refit; percentile intervals",
+        "ci95": {
+          "demographic_auc": [
+            0.20280528052805286,
+            0.6949257425742575
+          ],
+          "demographic_cognitive_auc": [
+            0.3504950495049505,
+            0.7695682068206822
+          ],
+          "normative_deviation_auc": [
+            0.5598047304730472,
+            0.8076320132013202
+          ],
+          "auc_increment": [
+            -0.04789603960396047,
+            0.34768976897689796
+          ]
+        }
+      },
+      "split_stability": [
+        {
+          "demographic": {
+            "auc": 0.5715071507150715,
+            "sensitivity": 1.0,
+            "specificity": 0.0,
+            "balanced_accuracy": 0.5,
+            "brier": 0.12972159524280524,
+            "threshold": 0.5
+          },
+          "demographic_cognitive": {
+            "auc": 0.6837183718371838,
+            "sensitivity": 0.9801980198019802,
+            "specificity": 0.05555555555555555,
+            "balanced_accuracy": 0.5178767876787679,
+            "brier": 0.1223086240055861,
+            "threshold": 0.5
+          },
+          "normative_deviation": {
+            "auc": 0.7046204620462047
+          },
+          "auc_increment": 0.11221122112211224
+        },
+        {
+          "demographic": {
+            "auc": 0.6375137513751375,
+            "sensitivity": 1.0,
+            "specificity": 0.0,
+            "balanced_accuracy": 0.5,
+            "brier": 0.12478776315762671,
+            "threshold": 0.5
+          },
+          "demographic_cognitive": {
+            "auc": 0.7222222222222222,
+            "sensitivity": 0.9900990099009901,
+            "specificity": 0.1111111111111111,
+            "balanced_accuracy": 0.5506050605060506,
+            "brier": 0.11648897165675305,
+            "threshold": 0.5
+          },
+          "normative_deviation": {
+            "auc": 0.7018701870187019
+          },
+          "auc_increment": 0.08470847084708466
+        }
+      ],
+      "power": {
+        "assumptions": "Fixed complete-case covariate design; Gaussian errors; specified SD/effects, no selection; no missingness simulation or sample-size expansion. Planning scenarios, not observed power.",
+        "scenarios": [
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1,
+            "difference_points": 0,
+            "power_or_type1_if_zero": 0.0565,
+            "mc_se": 0.005162739098579358,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1,
+            "difference_points": 3,
+            "power_or_type1_if_zero": 0.2695,
+            "mc_se": 0.009921435128044732,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1,
+            "difference_points": 5,
+            "power_or_type1_if_zero": 0.613,
+            "mc_se": 0.010891074327172687,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1,
+            "difference_points": 8,
+            "power_or_type1_if_zero": 0.9455,
+            "mc_se": 0.005075911248239078,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1,
+            "difference_points": 10,
+            "power_or_type1_if_zero": 0.996,
+            "mc_se": 0.0014113823011501884,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 0,
+            "power_or_type1_if_zero": 0.042,
+            "mc_se": 0.004485309353879618,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 3,
+            "power_or_type1_if_zero": 0.2245,
+            "mc_se": 0.009330052250657549,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 5,
+            "power_or_type1_if_zero": 0.5525,
+            "mc_se": 0.011118537448783451,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 8,
+            "power_or_type1_if_zero": 0.907,
+            "mc_se": 0.006494266702253611,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 8,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 10,
+            "power_or_type1_if_zero": 0.9815,
+            "mc_se": 0.003013117156700015,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1,
+            "difference_points": 0,
+            "power_or_type1_if_zero": 0.0495,
+            "mc_se": 0.004850244839180801,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1,
+            "difference_points": 3,
+            "power_or_type1_if_zero": 0.145,
+            "mc_se": 0.007873214083206426,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1,
+            "difference_points": 5,
+            "power_or_type1_if_zero": 0.3205,
+            "mc_se": 0.010435031145137996,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1,
+            "difference_points": 8,
+            "power_or_type1_if_zero": 0.6705,
+            "mc_se": 0.010510227162150207,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1,
+            "difference_points": 10,
+            "power_or_type1_if_zero": 0.849,
+            "mc_se": 0.008006216334823835,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 0,
+            "power_or_type1_if_zero": 0.0375,
+            "mc_se": 0.004248161366991607,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 3,
+            "power_or_type1_if_zero": 0.116,
+            "mc_se": 0.0071604469134265636,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 5,
+            "power_or_type1_if_zero": 0.2715,
+            "mc_se": 0.009944539959193687,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 8,
+            "power_or_type1_if_zero": 0.565,
+            "mc_se": 0.011085463454452412,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 12,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 10,
+            "power_or_type1_if_zero": 0.778,
+            "mc_se": 0.009292900515985306,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1,
+            "difference_points": 0,
+            "power_or_type1_if_zero": 0.047,
+            "mc_se": 0.00473238840333293,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1,
+            "difference_points": 3,
+            "power_or_type1_if_zero": 0.107,
+            "mc_se": 0.0069119823495145,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1,
+            "difference_points": 5,
+            "power_or_type1_if_zero": 0.1945,
+            "mc_se": 0.00885069912492793,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1,
+            "difference_points": 8,
+            "power_or_type1_if_zero": 0.422,
+            "mc_se": 0.011043459602859967,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1,
+            "difference_points": 10,
+            "power_or_type1_if_zero": 0.5955,
+            "mc_se": 0.010974510239641676,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 0,
+            "power_or_type1_if_zero": 0.038,
+            "mc_se": 0.004275277768753745,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 3,
+            "power_or_type1_if_zero": 0.083,
+            "mc_se": 0.006168914004912048,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 5,
+            "power_or_type1_if_zero": 0.1595,
+            "mc_se": 0.008187177474563502,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 8,
+            "power_or_type1_if_zero": 0.367,
+            "mc_se": 0.010777546102893738,
+            "replicates": 2000
+          },
+          {
+            "sd_controls": 16,
+            "sd_patient_ratio": 1.5,
+            "difference_points": 10,
+            "power_or_type1_if_zero": 0.512,
+            "mc_se": 0.011177119485806708,
+            "replicates": 2000
+          }
+        ]
+      }
+    },
+    "tmt_a": {
+      "scale": "negative log seconds",
+      "n": 120,
+      "n_by_group": {
+        "0": 19,
+        "1": 101
+      },
+      "descriptive": {
+        "0": {
+          "count": 19,
+          "mean": 21.478421052631578,
+          "std": 7.0493508473065125,
+          "median": 22.0
+        },
+        "1": {
+          "count": 101,
+          "mean": 36.885643564356435,
+          "std": 17.68996859329273,
+          "median": 33.0
+        }
+      },
+      "missing_predictors": {
+        "age": 1,
+        "sex": 0,
+        "education": 0,
+        "tug": 3
+      },
+      "inference": {
+        "n": 119,
+        "n_controls": 18,
+        "formula": "y ~ group + age + C(sex) + C(education)",
+        "group_effect": -0.44700910732498733,
+        "group_ci95": [
+          -0.6134525279550741,
+          -0.28056568669490056
+        ],
+        "group_p": 5.292554958174824e-07,
+        "coefficients": {
+          "Intercept": {
+            "estimate": -2.834128184934927,
+            "ci95": [
+              -3.4295805557314463,
+              -2.238675814138408
+            ],
+            "p": 6.372611104963042e-16
+          },
+          "C(sex)[T.mujer]": {
+            "estimate": -0.0035226678275683057,
+            "ci95": [
+              -0.17106868542312628,
+              0.16402334976798968
+            ],
+            "p": 0.966847662384063
+          },
+          "C(education)[T.medios]": {
+            "estimate": 0.14483122471046186,
+            "ci95": [
+              -0.06382845109353019,
+              0.3534909005144539
+            ],
+            "p": 0.17180757162518948
+          },
+          "C(education)[T.superiores]": {
+            "estimate": 0.30772402453298414,
+            "ci95": [
+              0.08759555783932402,
+              0.5278524912266442
+            ],
+            "p": 0.006563484760499714
+          },
+          "group": {
+            "estimate": -0.44700910732498733,
+            "ci95": [
+              -0.6134525279550741,
+              -0.28056568669490056
+            ],
+            "p": 5.292554958174824e-07
+          },
+          "age": {
+            "estimate": -0.008959517468247143,
+            "ci95": [
+              -0.01872000500554084,
+              0.0008009700690465547
+            ],
+            "p": 0.07162104124519485
+          }
+        },
+        "separate_models": {
+          "0": {
+            "n": 18,
+            "rank": 5,
+            "parameters": 5,
+            "coefficients": {
+              "Intercept": -2.8923669851289397,
+              "C(sex)[T.mujer]": 0.0522992704480338,
+              "C(education)[T.medios]": 0.10633246821483744,
+              "C(education)[T.superiores]": 0.3048577071589258,
+              "age": -0.008131342117142908
+            },
+            "ci95": {
+              "Intercept": {
+                "0": -5.115279636887268,
+                "1": -0.6694543333706111
+              },
+              "C(sex)[T.mujer]": {
+                "0": -0.30704023770885197,
+                "1": 0.41163877860491954
+              },
+              "C(education)[T.medios]": {
+                "0": -0.347443199116139,
+                "1": 0.560108135545814
+              },
+              "C(education)[T.superiores]": {
+                "0": -0.5873135717208314,
+                "1": 1.1970289860386831
+              },
+              "age": {
+                "0": -0.04643025641635705,
+                "1": 0.030167572182071237
+              }
+            }
+          },
+          "1": {
+            "n": 101,
+            "rank": 5,
+            "parameters": 5,
+            "coefficients": {
+              "Intercept": -3.2804420676987784,
+              "C(sex)[T.mujer]": -0.012719026828224976,
+              "C(education)[T.medios]": 0.1499023543920129,
+              "C(education)[T.superiores]": 0.31058581144151776,
+              "age": -0.008906374610279669
+            },
+            "ci95": {
+              "Intercept": {
+                "0": -4.02300218067182,
+                "1": -2.537881954725737
+              },
+              "C(sex)[T.mujer]": {
+                "0": -0.20696785792842395,
+                "1": 0.181529804271974
+              },
+              "C(education)[T.medios]": {
+                "0": -0.09726031307250352,
+                "1": 0.39706502185652937
+              },
+              "C(education)[T.superiores]": {
+                "0": 0.06335209593737165,
+                "1": 0.5578195269456638
+              },
+              "age": {
+                "0": -0.02024805152337216,
+                "1": 0.002435302302812822
+              }
+            }
+          }
+        },
+        "age_interaction_p": 0.9875710296955218,
+        "group_and_age_interaction_joint_p": 1.7432843669642257e-07,
+        "age_overlap_sensitivity": {
+          "range": [
+            27.115068493150684,
+            63.76438356164383
+          ],
+          "n": 112,
+          "effect": -0.41085807622139664,
+          "ci95": [
+            -0.5645867533225378,
+            -0.25712939912025545
+          ],
+          "note": "Age overlap only; not full multivariate common support"
+        },
+        "patient_control_time_ratio": 1.5636285396948424,
+        "time_ratio_ci95": [
+          1.3238785010095475,
+          1.8467965211942006
+        ],
+        "group_p_holm": 1.0585109916349648e-06
+      },
+      "regression_cv": [
+        {
+          "group": 0,
+          "model": "mean",
+          "n": 19,
+          "mae": 0.2996997147065627,
+          "rmse": 0.35541625713351505,
+          "r2": -0.0432932469843732,
+          "selected_alphas": []
+        },
+        {
+          "group": 0,
+          "model": "linear",
+          "n": 19,
+          "mae": 0.31552692358809814,
+          "rmse": 0.3630986143159023,
+          "r2": -0.08888245786505,
+          "selected_alphas": []
+        },
+        {
+          "group": 0,
+          "model": "ridge_base",
+          "n": 19,
+          "mae": 0.27980860570884664,
+          "rmse": 0.3379783727859624,
+          "r2": 0.05657009252140799,
+          "selected_alphas": [
+            10.0,
+            1.0,
+            1.0,
+            1.0,
+            10.0
+          ]
+        },
+        {
+          "group": 0,
+          "model": "ridge_tug",
+          "n": 19,
+          "mae": 0.2707605340365183,
+          "rmse": 0.32202870817194945,
+          "r2": 0.14351256137066615,
+          "selected_alphas": [
+            10.0,
+            10.0,
+            10.0,
+            10.0,
+            10.0
+          ]
+        },
+        {
+          "group": 1,
+          "model": "mean",
+          "n": 101,
+          "mae": 0.32151042546352343,
+          "rmse": 0.4046417908693142,
+          "r2": -0.022732938227531196,
+          "selected_alphas": []
+        },
+        {
+          "group": 1,
+          "model": "linear",
+          "n": 101,
+          "mae": 0.28852571793055715,
+          "rmse": 0.379973837533472,
+          "r2": 0.09816275989660306,
+          "selected_alphas": []
+        },
+        {
+          "group": 1,
+          "model": "ridge_base",
+          "n": 101,
+          "mae": 0.2909152359159838,
+          "rmse": 0.38173328275204327,
+          "r2": 0.08979162116194783,
+          "selected_alphas": [
+            10.0,
+            10.0,
+            10.0,
+            0.1,
+            1.0
+          ]
+        },
+        {
+          "group": 1,
+          "model": "ridge_tug",
+          "n": 101,
+          "mae": 0.2793061116393101,
+          "rmse": 0.3599228956990499,
+          "r2": 0.19083009243263427,
+          "selected_alphas": [
+            10.0,
+            10.0,
+            1.0,
+            0.1,
+            10.0
+          ]
+        }
+      ],
+      "discrimination": {
+        "demographic": {
+          "auc": 0.5471599791558103,
+          "sensitivity": 1.0,
+          "specificity": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.1339234456212384,
+          "threshold": 0.5
+        },
+        "demographic_cognitive": {
+          "auc": 0.7623762376237624,
+          "sensitivity": 0.9702970297029703,
+          "specificity": 0.3157894736842105,
+          "balanced_accuracy": 0.6430432516935904,
+          "brier": 0.11280420564979897,
+          "threshold": 0.5
+        },
+        "normative_deviation": {
+          "auc": 0.8124022928608651
+        },
+        "auc_increment": 0.21521625846795212
+      },
+      "bootstrap": {
+        "requested": 200,
+        "successful": 200,
+        "failed": 0,
+        "method": "Stratified participant bootstrap; duplicate copies stay in same fold; full refit; percentile intervals",
+        "ci95": {
+          "demographic_auc": [
+            0.21565919749869725,
+            0.722824387701928
+          ],
+          "demographic_cognitive_auc": [
+            0.5698671182907764,
+            0.8765112037519542
+          ],
+          "normative_deviation_auc": [
+            0.7080250130276186,
+            0.8989187076602397
+          ],
+          "auc_increment": [
+            0.046873371547681106,
+            0.5045857217300678
+          ]
+        }
+      },
+      "split_stability": [
+        {
+          "demographic": {
+            "auc": 0.590411672746222,
+            "sensitivity": 1.0,
+            "specificity": 0.0,
+            "balanced_accuracy": 0.5,
+            "brier": 0.13240461745189663,
+            "threshold": 0.5
+          },
+          "demographic_cognitive": {
+            "auc": 0.808754559666493,
+            "sensitivity": 0.9900990099009901,
+            "specificity": 0.21052631578947367,
+            "balanced_accuracy": 0.6003126628452319,
+            "brier": 0.10667492029022375,
+            "threshold": 0.5
+          },
+          "normative_deviation": {
+            "auc": 0.8275143303804064
+          },
+          "auc_increment": 0.21834288692027104
+        },
+        {
+          "demographic": {
+            "auc": 0.6263678999478894,
+            "sensitivity": 1.0,
+            "specificity": 0.0,
+            "balanced_accuracy": 0.5,
+            "brier": 0.13188610079969348,
+            "threshold": 0.5
+          },
+          "demographic_cognitive": {
+            "auc": 0.8129233976029182,
+            "sensitivity": 0.9900990099009901,
+            "specificity": 0.2631578947368421,
+            "balanced_accuracy": 0.6266284523189161,
+            "brier": 0.10371689673910929,
+            "threshold": 0.5
+          },
+          "normative_deviation": {
+            "auc": 0.8118811881188118
+          },
+          "auc_increment": 0.18655549765502877
+        }
+      ]
+    },
+    "tmt_b": {
+      "scale": "negative log seconds",
+      "n": 119,
+      "n_by_group": {
+        "0": 18,
+        "1": 101
+      },
+      "descriptive": {
+        "0": {
+          "count": 18,
+          "mean": 49.07111111111111,
+          "std": 17.102212408955918,
+          "median": 51.465
+        },
+        "1": {
+          "count": 101,
+          "mean": 86.010099009901,
+          "std": 40.117328313212724,
+          "median": 75.6
+        }
+      },
+      "missing_predictors": {
+        "age": 1,
+        "sex": 0,
+        "education": 0,
+        "tug": 2
+      },
+      "inference": {
+        "n": 118,
+        "n_controls": 17,
+        "formula": "y ~ group + age + C(sex) + C(education)",
+        "group_effect": -0.44494403410434197,
+        "group_ci95": [
+          -0.6250559025008657,
+          -0.26483216570781826
+        ],
+        "group_p": 3.3304813831172883e-06,
+        "coefficients": {
+          "Intercept": {
+            "estimate": -3.614264943143358,
+            "ci95": [
+              -4.065980250798202,
+              -3.162549635488514
+            ],
+            "p": 2.1583682580877924e-30
+          },
+          "C(sex)[T.mujer]": {
+            "estimate": -0.10860488148446691,
+            "ci95": [
+              -0.2728615121558515,
+              0.05565174918691772
+            ],
+            "p": 0.19285486033276217
+          },
+          "C(education)[T.medios]": {
+            "estimate": 0.25477420699007264,
+            "ci95": [
+              0.041618426743621706,
+              0.46792998723652357
+            ],
+            "p": 0.019586930230762974
+          },
+          "C(education)[T.superiores]": {
+            "estimate": 0.4490262848469131,
+            "ci95": [
+              0.21641022286475825,
+              0.681642346829068
+            ],
+            "p": 0.00021580000294138342
+          },
+          "group": {
+            "estimate": -0.44494403410434197,
+            "ci95": [
+              -0.6250559025008657,
+              -0.26483216570781826
+            ],
+            "p": 3.3304813831172883e-06
+          },
+          "age": {
+            "estimate": -0.010565923476090415,
+            "ci95": [
+              -0.01771124467274373,
+              -0.0034206022794371
+            ],
+            "p": 0.004109963521114931
+          }
+        },
+        "separate_models": {
+          "0": {
+            "n": 17,
+            "rank": 5,
+            "parameters": 5,
+            "coefficients": {
+              "Intercept": -4.074897714965727,
+              "C(sex)[T.mujer]": -0.033842764723039195,
+              "C(education)[T.medios]": 0.36012952669034815,
+              "C(education)[T.superiores]": 0.5069030480590511,
+              "age": -0.002511926424013433
+            },
+            "ci95": {
+              "Intercept": {
+                "0": -5.496734950006446,
+                "1": -2.6530604799250073
+              },
+              "C(sex)[T.mujer]": {
+                "0": -0.5251697860098541,
+                "1": 0.45748425656377567
+              },
+              "C(education)[T.medios]": {
+                "0": -0.032899495953752356,
+                "1": 0.7531585493344486
+              },
+              "C(education)[T.superiores]": {
+                "0": -0.1281201261439755,
+                "1": 1.1419262222620776
+              },
+              "age": {
+                "0": -0.025013984867897035,
+                "1": 0.01999013201987017
+              }
+            }
+          },
+          "1": {
+            "n": 101,
+            "rank": 5,
+            "parameters": 5,
+            "coefficients": {
+              "Intercept": -3.950960397381771,
+              "C(sex)[T.mujer]": -0.11883465903342533,
+              "C(education)[T.medios]": 0.2356189173192834,
+              "C(education)[T.superiores]": 0.4517150082276704,
+              "age": -0.0125409631660102
+            },
+            "ci95": {
+              "Intercept": {
+                "0": -4.436312952321883,
+                "1": -3.4656078424416585
+              },
+              "C(sex)[T.mujer]": {
+                "0": -0.3040304786650876,
+                "1": 0.0663611605982369
+              },
+              "C(education)[T.medios]": {
+                "0": -0.010747588710905448,
+                "1": 0.48198542334947225
+              },
+              "C(education)[T.superiores]": {
+                "0": 0.18922324503720922,
+                "1": 0.7142067714181316
+              },
+              "age": {
+                "0": -0.02071790500499631,
+                "1": -0.004364021327024093
+              }
+            }
+          }
+        },
+        "age_interaction_p": 0.2452013617516085,
+        "group_and_age_interaction_joint_p": 4.335621369282183e-07,
+        "age_overlap_sensitivity": {
+          "range": [
+            27.115068493150684,
+            63.76438356164383
+          ],
+          "n": 111,
+          "effect": -0.43048443023276317,
+          "ci95": [
+            -0.6098161995068542,
+            -0.25115266095867217
+          ],
+          "note": "Age overlap only; not full multivariate common support"
+        },
+        "patient_control_time_ratio": 1.560402864045015,
+        "time_ratio_ci95": [
+          1.303212233719864,
+          1.8683503999727475
+        ],
+        "group_p_holm": 3.3304813831172883e-06
+      },
+      "regression_cv": [
+        {
+          "group": 0,
+          "model": "mean",
+          "n": 18,
+          "mae": 0.3029069791500963,
+          "rmse": 0.38882893315499045,
+          "r2": -0.08278390028140703,
+          "selected_alphas": []
+        },
+        {
+          "group": 0,
+          "model": "linear",
+          "n": 18,
+          "mae": 0.33561606516322057,
+          "rmse": 0.4050952365630495,
+          "r2": -0.1752734221787775,
+          "selected_alphas": []
+        },
+        {
+          "group": 0,
+          "model": "ridge_base",
+          "n": 18,
+          "mae": 0.31555075749391226,
+          "rmse": 0.39323724835099183,
+          "r2": -0.1074750201395882,
+          "selected_alphas": [
+            100.0,
+            100.0,
+            10.0,
+            100.0,
+            100.0
+          ]
+        },
+        {
+          "group": 0,
+          "model": "ridge_tug",
+          "n": 18,
+          "mae": 0.3022211474222225,
+          "rmse": 0.3870844421724804,
+          "r2": -0.07308982005716946,
+          "selected_alphas": [
+            100.0,
+            10.0,
+            10.0,
+            10.0,
+            100.0
+          ]
+        },
+        {
+          "group": 1,
+          "model": "mean",
+          "n": 101,
+          "mae": 0.37788475342292416,
+          "rmse": 0.5072250714422247,
+          "r2": -0.027165602306076675,
+          "selected_alphas": []
+        },
+        {
+          "group": 1,
+          "model": "linear",
+          "n": 101,
+          "mae": 0.34284870590681943,
+          "rmse": 0.46324844595116527,
+          "r2": 0.1432246057244455,
+          "selected_alphas": []
+        },
+        {
+          "group": 1,
+          "model": "ridge_base",
+          "n": 101,
+          "mae": 0.3516170666550565,
+          "rmse": 0.4778055890415475,
+          "r2": 0.08853185637333416,
+          "selected_alphas": [
+            1.0,
+            100.0,
+            10.0,
+            10.0,
+            10.0
+          ]
+        },
+        {
+          "group": 1,
+          "model": "ridge_tug",
+          "n": 101,
+          "mae": 0.33990835819379117,
+          "rmse": 0.4626692080808841,
+          "r2": 0.14536586055681566,
+          "selected_alphas": [
+            1.0,
+            10.0,
+            10.0,
+            10.0,
+            10.0
+          ]
+        }
+      ],
+      "discrimination": {
+        "demographic": {
+          "auc": 0.5143014301430143,
+          "sensitivity": 0.9900990099009901,
+          "specificity": 0.0,
+          "balanced_accuracy": 0.49504950495049505,
+          "brier": 0.13594230587456166,
+          "threshold": 0.5
+        },
+        "demographic_cognitive": {
+          "auc": 0.7343234323432344,
+          "sensitivity": 0.9801980198019802,
+          "specificity": 0.16666666666666666,
+          "balanced_accuracy": 0.5734323432343235,
+          "brier": 0.12735706365086985,
+          "threshold": 0.5
+        },
+        "normative_deviation": {
+          "auc": 0.8135313531353134
+        },
+        "auc_increment": 0.22002200220022006
+      },
+      "bootstrap": {
+        "requested": 200,
+        "successful": 200,
+        "failed": 0,
+        "method": "Stratified participant bootstrap; duplicate copies stay in same fold; full refit; percentile intervals",
+        "ci95": {
+          "demographic_auc": [
+            0.20280528052805286,
+            0.6949257425742575
+          ],
+          "demographic_cognitive_auc": [
+            0.431504400440044,
+            0.8526540154015402
+          ],
+          "normative_deviation_auc": [
+            0.697992299229923,
+            0.8966446644664466
+          ],
+          "auc_increment": [
+            0.05605060506050607,
+            0.504441694169417
+          ]
+        }
+      },
+      "split_stability": [
+        {
+          "demographic": {
+            "auc": 0.5715071507150715,
+            "sensitivity": 1.0,
+            "specificity": 0.0,
+            "balanced_accuracy": 0.5,
+            "brier": 0.12972159524280524,
+            "threshold": 0.5
+          },
+          "demographic_cognitive": {
+            "auc": 0.7772277227722773,
+            "sensitivity": 0.9801980198019802,
+            "specificity": 0.05555555555555555,
+            "balanced_accuracy": 0.5178767876787679,
+            "brier": 0.12008849585117451,
+            "threshold": 0.5
+          },
+          "normative_deviation": {
+            "auc": 0.8041804180418042
+          },
+          "auc_increment": 0.20572057205720573
+        },
+        {
+          "demographic": {
+            "auc": 0.6375137513751375,
+            "sensitivity": 1.0,
+            "specificity": 0.0,
+            "balanced_accuracy": 0.5,
+            "brier": 0.12478776315762671,
+            "threshold": 0.5
+          },
+          "demographic_cognitive": {
+            "auc": 0.8173817381738173,
+            "sensitivity": 0.9900990099009901,
+            "specificity": 0.16666666666666666,
+            "balanced_accuracy": 0.5783828382838284,
+            "brier": 0.11475797208899904,
+            "threshold": 0.5
+          },
+          "normative_deviation": {
+            "auc": 0.8096809680968097
+          },
+          "auc_increment": 0.17986798679867977
+        }
+      ]
+    }
+  }
+}

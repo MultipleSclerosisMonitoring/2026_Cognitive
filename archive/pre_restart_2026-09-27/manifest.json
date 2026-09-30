@@ -1,0 +1,367 @@
+[
+  {
+    "original": "bland_altman_ensemble_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_ensemble_tmt_paper_errors_a.html",
+    "sha256": "f817a2d4837ae0a6add2dd788b11c0cbe111e89be60122a7303558da16770d1b"
+  },
+  {
+    "original": "bland_altman_ensemble_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_ensemble_tmt_paper_errors_b.html",
+    "sha256": "a6fc284a753eecbc73188804a9e2738052d80cd973f3f37d39a0e1fc37aa6445"
+  },
+  {
+    "original": "bland_altman_ensemble_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_ensemble_tmt_paper_score_a.html",
+    "sha256": "7cb62eaf893c057538f42832931b3bfe7a41f3b7fce8bacbae627b782dc94f35"
+  },
+  {
+    "original": "bland_altman_ensemble_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_ensemble_tmt_paper_score_b.html",
+    "sha256": "d25a5fb5ab3a21e728e861e87494a796dd290e8d400b147b48b5aa86de0a3d15"
+  },
+  {
+    "original": "bland_altman_error_classifier_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_error_classifier_tmt_paper_errors_a.html",
+    "sha256": "b8785a25c93afeda5638aecccfce4789ef356a74ddc4ef47409b5936ae4540bd"
+  },
+  {
+    "original": "bland_altman_error_classifier_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_error_classifier_tmt_paper_errors_b.html",
+    "sha256": "48817b4bda3f63a9a3a91a21703c8fc41c8636a695f1fd489c7f4defce02f795"
+  },
+  {
+    "original": "bland_altman_linear_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_linear_sdmt_paper_score.html",
+    "sha256": "5b622118f6eb25caf7329c2855bad5622cc753235ba08fad2e4f2c6f2d99a1d2"
+  },
+  {
+    "original": "bland_altman_rf_errors_multioutput_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_rf_errors_multioutput_tmt_paper_errors_a.html",
+    "sha256": "49c9e334befb41b7dc35aec1541b5bc1a2928b7ed3433df479ea1447f4a2d484"
+  },
+  {
+    "original": "bland_altman_rf_errors_multioutput_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_rf_errors_multioutput_tmt_paper_errors_b.html",
+    "sha256": "8374e6ec9a183c70438abaee328581d55fc0d6c7f05ad9a28b24214c86eb8db0"
+  },
+  {
+    "original": "bland_altman_rf_score_multioutput_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_rf_score_multioutput_tmt_paper_score_a.html",
+    "sha256": "dbcea09e61849b847124da1ec14d1401cd0d31a02867dfe63c958d538b20e729"
+  },
+  {
+    "original": "bland_altman_rf_score_multioutput_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_rf_score_multioutput_tmt_paper_score_b.html",
+    "sha256": "408153237b68103f0ee672aa773fd03cb7fcee188bbcc8e9334f2bbf3b299bc2"
+  },
+  {
+    "original": "bland_altman_rf_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_rf_sdmt_paper_score.html",
+    "sha256": "0d4f84e0db7d8f55a2ca62a088ba107068e808a9bcb4b7553129c3ecc808a37a"
+  },
+  {
+    "original": "bland_altman_ridge_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_ridge_tmt_paper_errors_a.html",
+    "sha256": "e57673925ca6abd8e6369e9bc857f1e809361f19ab0bf88fa380ecf6acabfd88"
+  },
+  {
+    "original": "bland_altman_ridge_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_ridge_tmt_paper_errors_b.html",
+    "sha256": "52e9f64891654906fc372b5a42badcc88bf3816c6dafb02d9ba5d3591a56efca"
+  },
+  {
+    "original": "bland_altman_ridge_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_ridge_tmt_paper_score_a.html",
+    "sha256": "78e6ac67916c146bfcd7193643fe2bbc5e205ed609dd65c628c72aca8cc7c5c7"
+  },
+  {
+    "original": "bland_altman_ridge_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_ridge_tmt_paper_score_b.html",
+    "sha256": "1cc4433aae8ff5738b6b01b0b9171fa90bf35cbe38ffdaaa44f0a3db5b64805e"
+  },
+  {
+    "original": "bland_altman_xgboost_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_xgboost_sdmt_paper_score.html",
+    "sha256": "b36dbe4d788058b169de444384ed67284bb5badcad9ffc0e9d9c5d7b1df8c6f3"
+  },
+  {
+    "original": "bland_altman_xgboost_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_xgboost_tmt_paper_errors_a.html",
+    "sha256": "9c4fb47c4a67d3de238ece90a32fc7f5388e654e78a2f901581f58a8e561d0b7"
+  },
+  {
+    "original": "bland_altman_xgboost_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_xgboost_tmt_paper_errors_b.html",
+    "sha256": "33e78c194ce1267b7cdb9a74b7e1faa171421748a9e07318a2426bf37d7cce64"
+  },
+  {
+    "original": "bland_altman_xgboost_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_xgboost_tmt_paper_score_a.html",
+    "sha256": "ebc8181b0be4ab6af598be33d69057811258619bcd13adf2ff5f64bc3e21caa3"
+  },
+  {
+    "original": "bland_altman_xgboost_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/bland_altman_xgboost_tmt_paper_score_b.html",
+    "sha256": "1487cc4018ce8e39f9998e7ac0cccba6d8a8f3b06214717b4612be85d412bb25"
+  },
+  {
+    "original": "calibration_ensemble_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_ensemble_tmt_paper_errors_a.html",
+    "sha256": "75e224365919aeb22a28cb8b05365cdb51811015421a8f49787cfe2eda5f637b"
+  },
+  {
+    "original": "calibration_ensemble_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_ensemble_tmt_paper_errors_b.html",
+    "sha256": "80f870bbf63f59d5b8775b238ab96e939b528321d5e4fb077812c3eca759aaf0"
+  },
+  {
+    "original": "calibration_ensemble_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_ensemble_tmt_paper_score_a.html",
+    "sha256": "012577226d10a1226821ecd004d7716243ed398c7d4febd6da7f01992d2fc6bc"
+  },
+  {
+    "original": "calibration_ensemble_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_ensemble_tmt_paper_score_b.html",
+    "sha256": "d3b63f11584e9c31d425f787cc0f8f8ea465066eed16cf6016770b01e68f666d"
+  },
+  {
+    "original": "calibration_error_classifier_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_error_classifier_tmt_paper_errors_a.html",
+    "sha256": "fa5a398b869a43b1fd5388c6d98801d6d5ab632798fca0711bb17491cebd64f6"
+  },
+  {
+    "original": "calibration_error_classifier_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_error_classifier_tmt_paper_errors_b.html",
+    "sha256": "f47e97d5810ce45eb308405db5cc93b25c6fc70467e88f4682715916f9b385c8"
+  },
+  {
+    "original": "calibration_linear_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_linear_sdmt_paper_score.html",
+    "sha256": "399777af73078e078b8e5297bf76f79c3edfed53df5491b3e7c66265d009b559"
+  },
+  {
+    "original": "calibration_rf_errors_multioutput_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_rf_errors_multioutput_tmt_paper_errors_a.html",
+    "sha256": "08540d50a507590c759cde3f8f031171c329735dfb9b7fb4949402e2068ad2e8"
+  },
+  {
+    "original": "calibration_rf_errors_multioutput_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_rf_errors_multioutput_tmt_paper_errors_b.html",
+    "sha256": "47931938f9e73eca93beee94f1c7ff89f6473dbf9c6f1c52aab5556652f35b2f"
+  },
+  {
+    "original": "calibration_rf_score_multioutput_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_rf_score_multioutput_tmt_paper_score_a.html",
+    "sha256": "02332af8320074244555278739e0977f3266f246d25cf5b6e1497c38057c70d8"
+  },
+  {
+    "original": "calibration_rf_score_multioutput_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_rf_score_multioutput_tmt_paper_score_b.html",
+    "sha256": "748973ff814571497c98fbb835d40fd244a9b4be8029d3caaf8d12634b6fb8f6"
+  },
+  {
+    "original": "calibration_rf_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_rf_sdmt_paper_score.html",
+    "sha256": "8e3c6d8d240b2d9e5a0927ee704cf46cffa617daeab4545b9360b6740aa9d57d"
+  },
+  {
+    "original": "calibration_ridge_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_ridge_tmt_paper_errors_a.html",
+    "sha256": "c7e8d52d067882716a33e323f34fac83e2bcda48bd5c831538cf2b9d9a2478b9"
+  },
+  {
+    "original": "calibration_ridge_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_ridge_tmt_paper_errors_b.html",
+    "sha256": "eda31939b73861386d9668f36c7e8548b49a846728fcc7db8a4ffd5faa33fc6c"
+  },
+  {
+    "original": "calibration_ridge_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_ridge_tmt_paper_score_a.html",
+    "sha256": "e4c35f14454c7258b8bc097975b2c817449145f02dde22cd1f3113aa1d21422b"
+  },
+  {
+    "original": "calibration_ridge_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_ridge_tmt_paper_score_b.html",
+    "sha256": "4627d9e83da70dcf2312cf7fce1a266970a38de0e09c50cd92c7fe57dd6c8a48"
+  },
+  {
+    "original": "calibration_xgboost_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_xgboost_sdmt_paper_score.html",
+    "sha256": "86121fe9a0d31d61d96dc5d8f9524b6aee6719dd64e486a2aba1cadce18552dc"
+  },
+  {
+    "original": "calibration_xgboost_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_xgboost_tmt_paper_errors_a.html",
+    "sha256": "b88bc09c9b8502c48100642fe29f9498913728ba25af3dd9070fd07c64535d1c"
+  },
+  {
+    "original": "calibration_xgboost_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_xgboost_tmt_paper_errors_b.html",
+    "sha256": "94464d941a646c2525ab4d54f51283347e9c9d7f1cba22cec1d5c53a4fdb5213"
+  },
+  {
+    "original": "calibration_xgboost_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_xgboost_tmt_paper_score_a.html",
+    "sha256": "18621d419ad1cc68959b695a50169a512b124c892c805acf571bcfeffbaac4c9"
+  },
+  {
+    "original": "calibration_xgboost_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/calibration_xgboost_tmt_paper_score_b.html",
+    "sha256": "0776e6d35efa30c8a9b0787e7143ab0e0cda45440a81f37eae67f110ed0ebd07"
+  },
+  {
+    "original": "comparativa_clinica_final.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/comparativa_clinica_final.xlsx",
+    "sha256": "eb4b6ed40d423d7c2fdd5a10e62c44068baa67ba783609ee97447758b48de053"
+  },
+  {
+    "original": "group_comparison.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/group_comparison.xlsx",
+    "sha256": "b2306f076e32d68f1023804e8203a8622aec1bf170a62d255606f555ea5c75b1"
+  },
+  {
+    "original": "residuals_ensemble_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_ensemble_tmt_paper_errors_a.html",
+    "sha256": "27550862488414310250c24f8a6887326ce61b8ba7bb0195f1ecb0ccc6647e58"
+  },
+  {
+    "original": "residuals_ensemble_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_ensemble_tmt_paper_errors_b.html",
+    "sha256": "7f9a2b805aab3ad2a875fe61cefd56f3a14c2d6dfc1493108c99158e908cf399"
+  },
+  {
+    "original": "residuals_ensemble_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_ensemble_tmt_paper_score_a.html",
+    "sha256": "0241478257783e0aa953a22c0fe990bcb72ecd021c399f0e99e9b362bd7fa0fd"
+  },
+  {
+    "original": "residuals_ensemble_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_ensemble_tmt_paper_score_b.html",
+    "sha256": "34c81d161532472c6e4b0413e5367bf43e2c300387aca3a500ea454391b8e717"
+  },
+  {
+    "original": "residuals_error_classifier_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_error_classifier_tmt_paper_errors_a.html",
+    "sha256": "e9e29e7e3673dde22b14c162d689580f77247a9a18be6afe963e1203d53e48b9"
+  },
+  {
+    "original": "residuals_error_classifier_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_error_classifier_tmt_paper_errors_b.html",
+    "sha256": "9076d368fdba5709be693f727547a03c80727cfbac970d1ea2b9450749e567ae"
+  },
+  {
+    "original": "residuals_linear_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_linear_sdmt_paper_score.html",
+    "sha256": "4e58939ab4e90338fe9a8e887b8ac0bfc20fdaa6cf6df13826664fb51a31790a"
+  },
+  {
+    "original": "residuals_rf_errors_multioutput_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_rf_errors_multioutput_tmt_paper_errors_a.html",
+    "sha256": "182693b072f00b0e87d17f51ff04823399e7ce4e6066cf265c47d07624b25f6e"
+  },
+  {
+    "original": "residuals_rf_errors_multioutput_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_rf_errors_multioutput_tmt_paper_errors_b.html",
+    "sha256": "be64bfae74e0ce2b15ce9a3dc5f59674c60304508705d9d6a829f5b021dc3026"
+  },
+  {
+    "original": "residuals_rf_score_multioutput_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_rf_score_multioutput_tmt_paper_score_a.html",
+    "sha256": "749bb200fbc22f9b5d588366a849cb825be8599e01e71c42cc119ee2f7cd06ff"
+  },
+  {
+    "original": "residuals_rf_score_multioutput_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_rf_score_multioutput_tmt_paper_score_b.html",
+    "sha256": "92f48e62ae0a9bb532f9ed8daac2ab6e20994a45c860c1d5170d4ee87b3c2bc0"
+  },
+  {
+    "original": "residuals_rf_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_rf_sdmt_paper_score.html",
+    "sha256": "69b357927bd1d9a60aaa3c666c3f70096f7ad5fafb12ae4baf28e78f518b400b"
+  },
+  {
+    "original": "residuals_ridge_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_ridge_tmt_paper_errors_a.html",
+    "sha256": "a208df8187ba51f2de03014f4e24f9657dcace1d518787139c63c77f85032182"
+  },
+  {
+    "original": "residuals_ridge_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_ridge_tmt_paper_errors_b.html",
+    "sha256": "d13ba6b14ea8346a3658f4290998042d44faedcff9ff6b087568f2b7f7c3d5ef"
+  },
+  {
+    "original": "residuals_ridge_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_ridge_tmt_paper_score_a.html",
+    "sha256": "45a03f7e3a25099354c2f99900b31e7efd9b64a31a7c9a47758e4d8358640427"
+  },
+  {
+    "original": "residuals_ridge_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_ridge_tmt_paper_score_b.html",
+    "sha256": "8015213d581b3e474affe5a0675bd49189f90a78b477f6efe964013e0748dec3"
+  },
+  {
+    "original": "residuals_xgboost_sdmt_paper_score.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_xgboost_sdmt_paper_score.html",
+    "sha256": "d43bb62e5c7f1ef82b09c86a6d87d86953fdd1038043e7240f0f7a056c1ac818"
+  },
+  {
+    "original": "residuals_xgboost_tmt_paper_errors_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_xgboost_tmt_paper_errors_a.html",
+    "sha256": "6cc976c404fbf1566dada6dc64b72bb05b539c515a555fd2c38d1415baee7879"
+  },
+  {
+    "original": "residuals_xgboost_tmt_paper_errors_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_xgboost_tmt_paper_errors_b.html",
+    "sha256": "0f19fb76dc81517c78f9d3a1a76a6b7a75f955c7d5673ea6fbb6e9da1ff58ea4"
+  },
+  {
+    "original": "residuals_xgboost_tmt_paper_score_a.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_xgboost_tmt_paper_score_a.html",
+    "sha256": "a2bd8a82b1ee2810738087090a2991c796be881a9e9b9527d278a1cc66e8adf5"
+  },
+  {
+    "original": "residuals_xgboost_tmt_paper_score_b.html",
+    "archived": "archive/pre_restart_2026-09-27/residuals_xgboost_tmt_paper_score_b.html",
+    "sha256": "1e8a57ef973ab0e385613f7b580fd5cb28861191027c30d138909765b5db9cfa"
+  },
+  {
+    "original": "resultados.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/resultados.xlsx",
+    "sha256": "e782d43027366056c06efd86f6e2302d046128727f9c4822157f9683200341ea"
+  },
+  {
+    "original": "resultados_sdmt_calibration_full.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/resultados_sdmt_calibration_full.xlsx",
+    "sha256": "211bc98d713df42745011752f4b8b0b9a78e6867a52a64bce3eb25235555957c"
+  },
+  {
+    "original": "resultados_sdmt_conservative.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/resultados_sdmt_conservative.xlsx",
+    "sha256": "bbb30fa4214371fc50cd89d81e7e35446f31c1e6c8b21874d60fc3f2b9e5eb21"
+  },
+  {
+    "original": "resultados_sdmt_exploratory.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/resultados_sdmt_exploratory.xlsx",
+    "sha256": "47072226afc21e775af2bc448f9ea6fcb1cbfa46f5803688e63158445df95b7d"
+  },
+  {
+    "original": "resultados_sdmt_kinematic_clinical_only.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/resultados_sdmt_kinematic_clinical_only.xlsx",
+    "sha256": "5e5515c0f4e0ac890f0493f4d4c5d3e49c700fe0071fda651fcf55ea3028b3f2"
+  },
+  {
+    "original": "resultados_sdmt_without_outcome_like.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/resultados_sdmt_without_outcome_like.xlsx",
+    "sha256": "a66a73cfaf479ebc239e03d17673225497987a02807e35ebce3f3c72c0fbfce5"
+  },
+  {
+    "original": "resultados_tmt.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/resultados_tmt.xlsx",
+    "sha256": "485a9496d86be8ebd628f3528ddc6da7d8c466a3e76d986c7f1de9c3f95fcbc5"
+  },
+  {
+    "original": "resultados_tmt_stratified_focus.xlsx",
+    "archived": "archive/pre_restart_2026-09-27/resultados_tmt_stratified_focus.xlsx",
+    "sha256": "14cc2ef62d4b2b76022aba7b4f6dc80a1989e8ff5eefc885fbf3b5cf0da32e0d"
+  }
+]
